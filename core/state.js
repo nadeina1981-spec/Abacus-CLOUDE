@@ -21,7 +21,7 @@ export const state = {
     },
     blocks: {
       simple: {
-        digits: [], // По умолчанию пусто - галочки неактивны
+        digits: [], // По умолчанию пусто
         onlyAddition: false,
         onlySubtraction: false
       },
