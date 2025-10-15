@@ -26,35 +26,64 @@ export function mountTrainerUI(container, { t, state }) {
     <div class="trainer-main">
       <div id="area-example" class="example-view"></div>
       
-      <div id="answer-area" class="answer-area">
-        <input type="number" id="answer-input" placeholder="Введи ответ" />
+      <div class="answer-section">
+        <div class="answer-label">Ответ:</div>
+        <input type="number" id="answer-input" placeholder="" />
         <button class="btn btn--primary" id="btn-submit">Ответить</button>
       </div>
     </div>
     
     <div id="panel-controls">
-      <div class="panel-card">
-        <div id="timer" style="font-size: 24px; font-weight: bold; color: #7d733a; text-align: center;">00:00</div>
+      <!-- Счетчик примеров -->
+      <div class="examples-counter">
+        <span class="examples-counter__label">Примеры:</span>
+        <span class="examples-counter__value"><span id="stats-completed">0</span> / <span id="stats-total">${getExampleCount(state.settings)}</span></span>
       </div>
       
-      <div class="panel-card">
-        <div class="stats">
-          <div>✅ <span id="stats-correct">0</span></div>
-          <div>❌ <span id="stats-incorrect">0</span></div>
-          <div>📝 <span id="stats-remaining">${getExampleCount(state.settings)}</span></div>
+      <!-- Капсула с результатами -->
+      <div class="results-capsule">
+        <div class="results-capsule__side results-capsule__side--correct">
+          <div class="results-capsule__icon">✓</div>
+          <div class="results-capsule__value" id="stats-correct">0</div>
         </div>
-        <div class="progress">
-          <div class="progress__bar" id="progress-bar" style="width: 0%;"></div>
+        <div class="results-capsule__divider"></div>
+        <div class="results-capsule__side results-capsule__side--incorrect">
+          <div class="results-capsule__icon">✗</div>
+          <div class="results-capsule__value" id="stats-incorrect">0</div>
         </div>
       </div>
       
-      <div class="panel-card">
-        <button class="btn btn--secondary" id="btn-toggle-abacus">
+      <!-- Прогресс-бар -->
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-bar__correct" id="progress-correct" style="width: 0%;"></div>
+          <div class="progress-bar__incorrect" id="progress-incorrect" style="width: 0%;"></div>
+        </div>
+        <div class="progress-label">
+          <span class="progress-label__correct">Правильно: <strong id="percent-correct">0%</strong></span>
+          <span class="progress-label__incorrect">Ошибки: <strong id="percent-incorrect">0%</strong></span>
+        </div>
+      </div>
+      
+      <!-- Таймер -->
+      <div class="timer-capsule">
+        <svg class="timer-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 2l3 3M18 2l-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span id="timer">00:00</span>
+      </div>
+      
+      <!-- Кнопка показать абакус -->
+      <div class="panel-card panel-card--compact">
+        <button class="btn btn--secondary btn--fullwidth" id="btn-toggle-abacus">
           🧮 Показать абакус
         </button>
       </div>
       
-      <div id="abacus-container" class="abacus-wrapper"></div>
+      <!-- Абакус (раскрывается) -->
+      <div id="abacus-container" class="abacus-container"></div>
     </div>
   `;
   
@@ -63,7 +92,7 @@ export function mountTrainerUI(container, { t, state }) {
   // Инициализация компонентов
   const exampleView = new ExampleView(document.getElementById('area-example'));
   
-  // Создаём контейнер для абакуса внутри panel-controls
+  // Создаём абакус
   const abacusContainer = document.getElementById('abacus-container');
   const abacus = new Abacus(abacusContainer, digits);
   
@@ -149,13 +178,25 @@ export function mountTrainerUI(container, { t, state }) {
   
   // Обновление статистики на экране
   function updateStats() {
-    document.getElementById('stats-correct').textContent = session.stats.correct;
-    document.getElementById('stats-incorrect').textContent = session.stats.incorrect;
-    document.getElementById('stats-remaining').textContent = session.stats.total - session.completed;
+    const { correct, incorrect, total } = session.stats;
+    const completed = session.completed;
+    
+    // Обновляем счетчики
+    document.getElementById('stats-completed').textContent = completed;
+    document.getElementById('stats-correct').textContent = correct;
+    document.getElementById('stats-incorrect').textContent = incorrect;
+    
+    // Вычисляем проценты
+    const percentCorrect = completed > 0 ? Math.round((correct / completed) * 100) : 0;
+    const percentIncorrect = completed > 0 ? Math.round((incorrect / completed) * 100) : 0;
     
     // Обновляем прогресс-бар
-    const progress = (session.completed / session.stats.total) * 100;
-    document.getElementById('progress-bar').style.width = progress + '%';
+    document.getElementById('progress-correct').style.width = percentCorrect + '%';
+    document.getElementById('progress-incorrect').style.width = percentIncorrect + '%';
+    
+    // Обновляем проценты в тексте
+    document.getElementById('percent-correct').textContent = percentCorrect + '%';
+    document.getElementById('percent-incorrect').textContent = percentIncorrect + '%';
   }
   
   // Завершение сессии
@@ -171,7 +212,7 @@ export function mountTrainerUI(container, { t, state }) {
     }
   }
   
-  // Тоггл абакуса
+  // Тоггл видимости абакуса
   function toggleAbacus() {
     abacusVisible = !abacusVisible;
     const btn = document.getElementById('btn-toggle-abacus');
