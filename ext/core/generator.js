@@ -13,6 +13,11 @@ export function generateExample(settings) {
   // Определяем активные блоки (какие цифры использовать)
   const activeDigits = getActiveDigits(settings);
   
+  // Если нет активных цифр, используем базовый набор
+  if (activeDigits.length === 0) {
+    console.warn('⚠️ Нет активных цифр, используем базовый набор [1, 2, 3, 4]');
+  }
+  
   // Генерируем пример
   const example = {
     start: 0, // начинаем с 0 для однозначных
