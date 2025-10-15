@@ -13,17 +13,20 @@ import { playSound } from "../js/utils/sound.js";
 export function mountTrainerUI(container, { t, state }) {
   console.log('🎮 Монтируем UI тренажёра с абакусом...');
   console.log('📋 Настройки:', state.settings);
+  console.log('🔧 state.settings.inline =', state.settings.inline);
   
   const digits = parseInt(state.settings.digits, 10) || 1;
   
   // Определяем режим отображения из настроек
   const displayMode = state.settings.inline ? 'inline' : 'column';
   
+  console.log('📐 РЕЖИМ ОТОБРАЖЕНИЯ:', displayMode);
+  console.log('📐 КЛАСС БУДЕТ:', `mws-trainer--${displayMode}`);
+  console.log('📐 КЛАСС trainer-main БУДЕТ:', `trainer-main--${displayMode}`);
+  
   // Создаём основной layout
   const layout = document.createElement("div");
   layout.className = `mws-trainer mws-trainer--${displayMode}`;
-  
-  console.log(`📐 Режим отображения: ${displayMode}`, `Класс: mws-trainer--${displayMode}`);
   
   layout.innerHTML = `
     <div class="trainer-main trainer-main--${displayMode}">
@@ -91,6 +94,13 @@ export function mountTrainerUI(container, { t, state }) {
   `;
   
   container.appendChild(layout);
+  
+  // ПРОВЕРКА: выводим реальные классы элементов
+  setTimeout(() => {
+    const trainerMain = container.querySelector('.trainer-main');
+    console.log('✅ РЕАЛЬНЫЕ КЛАССЫ .trainer-main:', trainerMain?.className);
+    console.log('✅ РЕАЛЬНЫЕ КЛАССЫ .mws-trainer:', container.querySelector('.mws-trainer')?.className);
+  }, 100);
   
   // Инициализация компонентов
   const exampleView = new ExampleView(document.getElementById('area-example'));
