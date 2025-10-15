@@ -22,8 +22,11 @@ export function mountTrainerUI(container, { t, state }) {
   // Создаём основной layout
   const layout = document.createElement("div");
   layout.className = `mws-trainer mws-trainer--${displayMode}`;
+  
+  console.log(`📐 Режим отображения: ${displayMode}`, `Класс: mws-trainer--${displayMode}`);
+  
   layout.innerHTML = `
-    <div class="trainer-main">
+    <div class="trainer-main trainer-main--${displayMode}">
       <div id="area-example" class="example-view"></div>
       
       <div class="answer-section">
