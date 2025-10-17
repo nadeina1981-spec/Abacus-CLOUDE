@@ -24,13 +24,13 @@ export function mountTrainerUI(container, { t, state }) {
   layout.innerHTML = `
     <div class="trainer-main trainer-main--${displayMode}">
       <div id="area-example" class="example-view"></div>
-      <div class="answer-section">
-        <div class="answer-label">Ответ:</div>
-        <input type="number" id="answer-input" placeholder="" />
-        <button class="btn btn--primary" id="btn-submit">Ответить</button>
-      </div>
-    </div>
+     </div>
     <div id="panel-controls">
+    <div class="answer-section-panel">
+      <div class="answer-label">Ответ:</div>
+      <input type="number" id="answer-input" placeholder="" />
+      <button class="btn btn--primary" id="btn-submit">Ответить</button>
+    </div>
       <div class="results-capsule-extended">
         <div class="results-capsule-extended__header">
           <span class="results-capsule-extended__label">Примеры:</span>
