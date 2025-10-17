@@ -116,10 +116,10 @@ export function mountTrainerUI(container, { t, state }) {
    */
   function calculateFontSize(actions, maxDigits) {
     // Базовые параметры
-    const baseSize = 64;           // Максимальный размер для 1 действия, 1 разряда
-    const minSize = 20;            // Минимальный размер
-    const actionPenalty = 2.5;     // Штраф за каждое действие
-    const digitPenalty = 5;        // Штраф за каждый разряд
+    const baseSize = 120;           // Максимальный размер для 1 действия, 1 разряда
+    const minSize = 35;            // Минимальный размер
+    const actionPenalty = 1.8;     // Штраф за каждое действие
+    const digitPenalty = 3;        // Штраф за каждый разряд
     
     // Рассчитываем размер
     let fontSize = baseSize - (actions * actionPenalty) - (maxDigits * digitPenalty);
