@@ -855,7 +855,7 @@ body.game-screen .trainer-main{
   margin-inline: auto !important;
   align-items: flex-start !important;
   gap: clamp(20px, 4vw, 48px) !important;
-  padding: clamp(20px, 3vh, 48px) clamp(20px, 5vw, 64px) !important;
+  padding: clamp(20px, 3vh, 48px) 8px !important;
 }
 
 body.game-screen .trainer-main--column #area-example{
@@ -865,6 +865,7 @@ body.game-screen .trainer-main--column #area-example{
   max-height: none !important;
   overflow: hidden !important;
   justify-content: flex-start !important;
+  padding: 0 3px !important;
 }
 
 body.game-screen .example--column{
@@ -875,7 +876,8 @@ body.game-screen .example--column{
   width: 100% !important;
   height: 100% !important;
   max-height: calc(90vh - 220px) !important;
-  overflow: hidden !important;
+  overflow: visible !important; 
+  padding: 0 !important; 
 }
 
 body.game-screen .example__line{
