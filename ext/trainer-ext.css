@@ -1,8 +1,8 @@
 /* trainer-ext.css — стили для тренажёра */
 :root{
   --gold: var(--color-muted);
-  --color-correct: #22c55e;
-  --color-incorrect: #ef4444;
+  --color-correct: #7D733A;
+  --color-incorrect: #E8654B;
 }
 
 /* ========================================
@@ -275,11 +275,11 @@
 }
 
 .results-capsule__side--correct {
-  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  background: #EDEBDD;
 }
 
 .results-capsule__side--incorrect {
-  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  background: #FBE5E0;
 }
 
 .results-capsule__icon {
