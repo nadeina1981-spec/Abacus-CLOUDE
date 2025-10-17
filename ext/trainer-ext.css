@@ -811,11 +811,6 @@
   max-height: none;
 }
 
-/* Правая секция с ответом */
-.trainer-main--column .answer-section {
-  flex: 0 0 320px;
-}
-
 /* ====== Мобильная адаптация ====== */
 @media (max-width: 900px) {
   .mws-trainer {
@@ -1008,5 +1003,69 @@ body.game-screen .timer-capsule {
     order: 2 !important;
     width: 100% !important;
     margin-top: 20px !important;
+  }
+}
+/* ========================================
+   Блок ответа в правой панели
+   ======================================== */
+.answer-section-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-medium);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+
+.answer-section-panel .answer-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: "Baloo 2", cursive;
+  text-align: center;
+}
+
+.answer-section-panel #answer-input {
+  width: 100%;
+  height: 70px;
+  font-size: 44px;
+  font-weight: 700;
+  padding: 0 16px;
+  border-radius: var(--radius-medium);
+  border: 3px solid rgba(125, 115, 58, 0.3);
+  text-align: center;
+  transition: var(--transition);
+  background: #fff;
+  line-height: 70px;
+  font-family: "Baloo 2", system-ui, sans-serif;
+  color: var(--color-text);
+}
+
+.answer-section-panel #answer-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(255, 124, 0, 0.15);
+}
+
+.answer-section-panel #answer-input::placeholder {
+  color: rgba(125, 115, 58, 0.3);
+  font-size: 28px;
+}
+
+.answer-section-panel #btn-submit {
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 18px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 900px) {
+  .answer-section-panel {
+    order: -1; /* Поднять вверх на мобильных */
+    margin-bottom: 16px;
   }
 }
