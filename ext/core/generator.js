@@ -63,13 +63,16 @@ export function generateExamples(settings, count) {
  * @private
  */
 function createRuleFromSettings(settings) {
-  const { blocks, steps } = settings;
+  const { blocks, steps, actions } = settings;
   
   // Определяем конфигурацию правила
   const config = {
-    minSteps: steps?.min || 1,
-    maxSteps: steps?.max || 3
+    // Количество шагов (действий) в примере
+    minSteps: actions?.min || steps?.min || 2,
+    maxSteps: actions?.max || steps?.max || 4
   };
+  
+  console.log(`⚙️ Настройка количества действий: от ${config.minSteps} до ${config.maxSteps}`);
   
   // Получаем выбранные цифры из блока "Просто"
   const selectedDigits = blocks?.simply?.selected || [1, 2, 3, 4];
