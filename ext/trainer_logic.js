@@ -138,7 +138,25 @@ export function mountTrainerUI(container, { t, state }) {
       return;
     }
 
-    session.currentExample = generateExample(state.settings);
+    // ✅ ИСПРАВЛЕННЫЙ ВЫЗОВ generateExample
+    session.currentExample = generateExample({
+      blocks: {
+        simple: {
+          digits: state.settings.blocks.simple.digits.length > 0 
+            ? state.settings.blocks.simple.digits.map(d => parseInt(d))
+            : [1, 2, 3, 4]
+        }
+      },
+      actions: {
+        min: state.settings.actions.infinite 
+          ? 2 
+          : Math.max(1, state.settings.actions.count - 1),
+        max: state.settings.actions.infinite 
+          ? 5 
+          : Math.max(2, state.settings.actions.count + 1)
+      }
+    });
+
     exampleView.render(session.currentExample.steps, displayMode);
 
     // === НОВАЯ АДАПТИВНАЯ ЛОГИКА ===
