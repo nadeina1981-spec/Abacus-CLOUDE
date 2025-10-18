@@ -43,92 +43,77 @@ export class SimpleRule extends BaseRule {
   getAvailableActions(currentState, isFirstAction = false) {
     let actions = super.getAvailableActions(currentState);
     
-    // ПРАВИЛО 1: Первое действие ВСЕГДА положительное
-    if (isFirstAction) {
+    // ПРАВИЛО 1: Первое действие всегда положительное
+    if (isFirstAction && this.config.firstActionMustBePositive) {
       actions = actions.filter(action => action > 0);
-      console.log(`🎯 Первое действие (из состояния ${currentState}):`, actions);
-      return actions;
+      console.log(`🎯 Первое действие: [${actions.join(', ')}]`);
     }
     
-    // ПРАВИЛО 2: Если текущее состояние = 0, следующее действие только положительное
-    if (currentState === 0) {
+    // ПРАВИЛО 2: Если состояние = 0, следующее действие только положительное
+    if (currentState === 0 && !isFirstAction) {
       actions = actions.filter(action => action > 0);
-      console.log(`⚠️ Состояние 0 → только положительные действия:`, actions);
-      return actions;
+      console.log(`⚠️ Состояние 0 → доступны только положительные: [${actions.join(', ')}]`);
     }
     
-    console.log(`✅ Доступные действия из состояния ${currentState}:`, actions);
+    console.log(`✅ Доступные действия из ${currentState}: [${actions.join(', ')}]`);
     return actions;
   }
 
   /**
-   * Генерирует случайное начальное состояние
-   * Для правила "Просто" начало всегда 0 (подразумевается)
-   * @returns {number}
-   */
-  generateStartState() {
-    return 0; // Всегда начинаем с 0
-  }
-
-  /**
    * Валидация полного примера
-   * @param {Object} example - { start, steps, answer }
-   * @returns {Object} - { isValid, errors }
+   * @param {Object} example - Пример {start, steps, answer}
+   * @returns {boolean}
    */
   validateExample(example) {
-    const errors = [];
-    let currentState = example.start;
-
-    // Проверка 1: Начальное состояние должно быть 0
-    if (currentState !== 0) {
-      errors.push(`Начальное состояние должно быть 0, получено ${currentState}`);
+    const { start, steps, answer } = example;
+    
+    // 1. Начальное состояние должно быть 0
+    if (start !== 0) {
+      console.error(`❌ Начальное состояние ${start} ≠ 0`);
+      return false;
     }
-
-    // Проверка 2: Первое действие должно быть положительным
-    if (example.steps.length > 0) {
-      const firstStep = example.steps[0];
-      if (firstStep.action <= 0) {
-        errors.push(`Первое действие должно быть положительным, получено ${firstStep.action}`);
+    
+    // 2. Первое действие должно быть положительным
+    if (steps.length > 0 && steps[0].action <= 0) {
+      console.error(`❌ Первое действие ${steps[0].action} не положительное`);
+      return false;
+    }
+    
+    // 3. Все промежуточные состояния должны быть 0-4
+    for (const step of steps) {
+      if (!this.isValidState(step.toState)) {
+        console.error(`❌ Состояние ${step.toState} вне диапазона 0-4`);
+        return false;
+      }
+      
+      // Если промежуточное состояние = 0, следующее действие должно быть положительным
+      if (step.toState === 0) {
+        const nextStep = steps[steps.indexOf(step) + 1];
+        if (nextStep && nextStep.action <= 0) {
+          console.error(`❌ После состояния 0 действие ${nextStep.action} не положительное`);
+          return false;
+        }
       }
     }
-
-    // Проверка 3: Все промежуточные состояния должны быть 0-4
-    example.steps.forEach((step, index) => {
-      // Проверяем действие
-      if (!this.isValidAction(currentState, step.action)) {
-        errors.push(`Шаг ${index + 1}: действие ${step.action} недопустимо из состояния ${currentState}`);
-      }
-
-      // Проверяем правило: если состояние = 0, действие должно быть положительным
-      if (currentState === 0 && step.action < 0) {
-        errors.push(`Шаг ${index + 1}: из состояния 0 нельзя делать отрицательное действие ${step.action}`);
-      }
-
-      // Применяем действие
-      const newState = this.applyAction(currentState, step.action);
-
-      // Проверяем границы
-      if (!this.isValidState(newState)) {
-        errors.push(`Шаг ${index + 1}: состояние ${newState} выходит за границы (0-4)`);
-      }
-
-      currentState = newState;
-    });
-
-    // Проверка 4: Финальное состояние должно быть 0-4
-    if (!this.isValidState(example.answer)) {
-      errors.push(`Финальное состояние ${example.answer} выходит за границы (0-4)`);
+    
+    // 4. Финальное состояние должно быть 0-4
+    if (!this.isValidState(answer)) {
+      console.error(`❌ Финальное состояние ${answer} вне диапазона 0-4`);
+      return false;
     }
-
-    // Проверка 5: Расчётное состояние = финальному
-    if (example.answer !== currentState) {
-      errors.push(`Финальное состояние ${example.answer} не совпадает с расчётным ${currentState}`);
+    
+    // 5. Расчётное состояние должно совпадать с ответом
+    let calculatedState = start;
+    for (const step of steps) {
+      calculatedState = this.applyAction(calculatedState, step.action);
     }
-
-    return {
-      isValid: errors.length === 0,
-      errors: errors
-    };
+    
+    if (calculatedState !== answer) {
+      console.error(`❌ Расчётное состояние ${calculatedState} ≠ ответу ${answer}`);
+      return false;
+    }
+    
+    console.log(`✅ Пример валиден: ${steps.map(s => this.formatAction(s.action)).join(' ')} = ${answer}`);
+    return true;
   }
 }
-
