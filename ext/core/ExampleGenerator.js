@@ -1,57 +1,66 @@
 // ext/core/ExampleGenerator.js - Генератор примеров на основе правил
 
 /**
- * ExampleGenerator - генератор примеров для абакуса
- * Использует правила (Rule) для валидации и генерации
+ * ExampleGenerator - класс для генерации примеров на основе заданного правила
+ * Использует правила (BaseRule, SimpleRule, Simple5Rule и др.) для создания валидных примеров
  */
 export class ExampleGenerator {
   constructor(rule) {
     this.rule = rule;
+    console.log(`⚙️ Генератор создан с правилом: ${rule.name}`);
   }
 
   /**
    * Генерирует один пример
-   * @returns {Object} - { start, steps: [{ action, fromState, toState }], answer }
+   * @returns {Object} - Пример в формате {start, steps, answer}
    */
   generate() {
-    const startState = this.rule.generateStartState();
+    const maxAttempts = 100; // Максимум попыток генерации
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const example = this._generateAttempt();
+        
+        // Валидация примера
+        if (this.rule.validateExample && !this.rule.validateExample(example)) {
+          console.warn(`⚠️ Попытка ${attempt}: пример не прошёл валидацию`);
+          continue;
+        }
+        
+        console.log(`✅ Пример сгенерирован (попытка ${attempt})`);
+        return example;
+        
+      } catch (error) {
+        console.warn(`⚠️ Попытка ${attempt} неудачна:`, error.message);
+      }
+    }
+    
+    throw new Error(`Не удалось сгенерировать валидный пример за ${maxAttempts} попыток`);
+  }
+
+  /**
+   * Одна попытка генерации примера
+   * @private
+   */
+  _generateAttempt() {
+    const start = this.rule.generateStartState();
     const stepsCount = this.rule.generateStepsCount();
     
+    console.log(`🎲 Генерация примера: старт=${start}, шагов=${stepsCount}`);
+    
     const steps = [];
-    let currentState = startState;
-    let attempts = 0;
-    const maxAttempts = 100; // Защита от бесконечного цикла
+    let currentState = start;
     
-    console.log(`🎲 Генерация примера: старт=${startState}, шагов=${stepsCount}`);
-    
-    // Генерируем цепочку шагов
     for (let i = 0; i < stepsCount; i++) {
       const isFirstAction = (i === 0);
       const availableActions = this.rule.getAvailableActions(currentState, isFirstAction);
       
-      // Если нет доступных действий, прерываем генерацию
       if (availableActions.length === 0) {
-        console.warn(`⚠️ Нет доступных действий на шаге ${i + 1} (состояние ${currentState})`);
-        
-        // Попытка перегенерировать с начала
-        if (attempts < maxAttempts) {
-          attempts++;
-          i = -1; // Сброс цикла
-          currentState = startState;
-          steps.length = 0;
-          continue;
-        } else {
-          console.error('❌ Не удалось сгенерировать пример после 100 попыток');
-          break;
-        }
+        throw new Error(`Нет доступных действий из состояния ${currentState}`);
       }
       
       // Выбираем случайное действие
-      const action = availableActions[
-        Math.floor(Math.random() * availableActions.length)
-      ];
-      
-      // Применяем действие
+      const action = availableActions[Math.floor(Math.random() * availableActions.length)];
       const newState = this.rule.applyAction(currentState, action);
       
       steps.push({
@@ -60,26 +69,20 @@ export class ExampleGenerator {
         toState: newState
       });
       
-      console.log(`  Шаг ${i + 1}: ${currentState} ${action > 0 ? '+' : ''}${action} → ${newState}`);
-      
       currentState = newState;
     }
     
-    const example = {
-      start: startState,
+    return {
+      start: start,
       steps: steps,
       answer: currentState
     };
-    
-    console.log(`✅ Пример сгенерирован:`, this.formatForDisplay(example));
-    
-    return example;
   }
 
   /**
    * Генерирует несколько примеров
    * @param {number} count - Количество примеров
-   * @returns {Array<Object>}
+   * @returns {Array} - Массив примеров
    */
   generateMultiple(count) {
     const examples = [];
@@ -91,21 +94,28 @@ export class ExampleGenerator {
 
   /**
    * Форматирует пример для отображения
-   * @param {Object} example - Пример
-   * @returns {string}
+   * @param {Object} example - Пример {start, steps, answer}
+   * @returns {string} - Отформатированная строка
    */
   formatForDisplay(example) {
-    const actions = example.steps.map(step => 
-      this.rule.formatAction(step.action)
-    ).join(' ');
+    const { start, steps, answer } = example;
     
-    return `${actions} = ${example.answer}`;
+    const stepsStr = steps
+      .map(step => this.rule.formatAction(step.action))
+      .join(' ');
+    
+    // Если старт = 0, не показываем его
+    if (start === 0) {
+      return `${stepsStr} = ${answer}`;
+    } else {
+      return `${start} ${stepsStr} = ${answer}`;
+    }
   }
 
   /**
    * Конвертирует пример в формат для trainer_logic.js
-   * @param {Object} example - Сгенерированный пример
-   * @returns {Object} - { start: 0, steps: ['+2', '-1', '+1'], answer: 2 }
+   * @param {Object} example - Пример {start, steps, answer}
+   * @returns {Object} - Пример в формате {start, steps: string[], answer}
    */
   toTrainerFormat(example) {
     return {
@@ -117,42 +127,13 @@ export class ExampleGenerator {
 
   /**
    * Валидирует пример
-   * @param {Object} example - Пример
-   * @returns {Object} - { isValid, errors }
+   * @param {Object} example - Пример для валидации
+   * @returns {boolean}
    */
   validate(example) {
-    if (typeof this.rule.validateExample === 'function') {
+    if (this.rule.validateExample) {
       return this.rule.validateExample(example);
     }
-    
-    // Базовая валидация
-    const errors = [];
-    let currentState = example.start;
-
-    if (!this.rule.isValidState(currentState)) {
-      errors.push(`Начальное состояние ${currentState} выходит за границы`);
-    }
-
-    example.steps.forEach((step, index) => {
-      if (!this.rule.isValidAction(currentState, step.action)) {
-        errors.push(`Шаг ${index + 1}: действие ${step.action} недопустимо из состояния ${currentState}`);
-      }
-
-      const newState = this.rule.applyAction(currentState, step.action);
-      if (!this.rule.isValidState(newState)) {
-        errors.push(`Шаг ${index + 1}: состояние ${newState} выходит за границы`);
-      }
-
-      currentState = newState;
-    });
-
-    if (example.answer !== currentState) {
-      errors.push(`Финальное состояние ${example.answer} не совпадает с расчётным ${currentState}`);
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors: errors
-    };
+    return true; // Если правило не предоставляет валидацию
   }
 }
