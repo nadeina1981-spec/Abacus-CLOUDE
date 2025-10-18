@@ -1,50 +1,120 @@
-// ext/core/generator.js - Генератор примеров на основе настроек
+// ext/core/generator.js - Генератор примеров на основе настроек (ОБНОВЛЁННАЯ ВЕРСИЯ)
+
+import { SimpleRule } from './rules/SimpleRule.js';
+import { ExampleGenerator } from './ExampleGenerator.js';
+
+/**
+ * Создаёт правило на основе настроек блоков
+ * @param {Object} settings - Настройки из state.settings
+ * @returns {BaseRule} - Экземпляр правила
+ */
+function createRuleFromSettings(settings) {
+  console.log('⚙️ Создание правила из настроек:', settings);
+  
+  // Получаем настройки блока "Просто"
+  const simpleBlock = settings.blocks?.simple || {};
+  
+  // Конфигурация правила на основе настроек
+  const config = {
+    minSteps: settings.actions?.count || 1,
+    maxSteps: settings.actions?.count || 3,
+  };
+  
+  // Если в блоке "Просто" выбраны конкретные цифры, ограничиваем действия
+  if (simpleBlock.digits && simpleBlock.digits.length > 0) {
+    const allowedDigits = simpleBlock.digits.map(d => parseInt(d, 10));
+    
+    // Формируем список разрешённых действий
+    const positiveActions = allowedDigits.filter(d => d > 0);
+    const negativeActions = allowedDigits.map(d => -d).filter(d => d < 0);
+    
+    // Если выбрано "только сложение"
+    if (simpleBlock.onlyAddition) {
+      config.allowedActions = positiveActions;
+    } 
+    // Если выбрано "только вычитание"
+    else if (simpleBlock.onlySubtraction) {
+      config.allowedActions = negativeActions;
+    }
+    // Иначе разрешены и сложение, и вычитание
+    else {
+      config.allowedActions = [...positiveActions, ...negativeActions];
+    }
+    
+    console.log('📋 Разрешённые действия из блока "Просто":', config.allowedActions);
+  }
+  
+  // Создаём правило "Просто"
+  const rule = new SimpleRule(config);
+  
+  console.log('✅ Правило создано:', rule.name, rule.config);
+  return rule;
+}
 
 /**
  * Генерация одного примера на основе настроек
  * @param {Object} settings - Настройки из state.settings
- * @returns {Object} Пример: { start, steps, answer }
+ * @returns {Object} Пример: { start: 0, steps: ['+2', '-1', '+1'], answer: 2 }
  */
 export function generateExample(settings) {
-  // Извлекаем параметры
-  const actionCount = settings.actions?.infinite ? 10 : settings.actions?.count || 10;
-  const digits = parseInt(settings.digits, 10) || 1;
+  console.log('🎲 Запрос на генерацию примера с настройками:', settings);
+  
+  // Создаём правило на основе настроек
+  const rule = createRuleFromSettings(settings);
+  
+  // Создаём генератор
+  const generator = new ExampleGenerator(rule);
+  
+  // Генерируем пример
+  const example = generator.generate();
+  
+  // Конвертируем в формат для trainer_logic.js
+  const trainerExample = generator.toTrainerFormat(example);
+  
+  // Валидируем пример
+  const validation = generator.validate(example);
+  if (!validation.isValid) {
+    console.error('❌ Сгенерирован невалидный пример:', validation.errors);
+    console.error('Пример:', trainerExample);
+  } else {
+    console.log('✅ Пример валиден:', trainerExample);
+  }
+  
+  return trainerExample;
+}
 
-  // Получаем диапазон для разрядности
-  const { min, max } = getDigitRange(digits);
-
-  const example = {
-    start: 0,
-    steps: [],
-    answer: 0
-  };
-
-  let current = example.start;
-
-  for (let i = 0; i < actionCount; i++) {
-    // Генерируем случайное число в диапазоне
-    const value = randomInt(min, max);
-
-    // Определяем операцию (+/-)
-    const operation = getRandomOperation(settings);
-    const delta = operation === '+' ? value : -value;
-
-    // Проверка допустимости результата (чтобы не выходило за границы)
-    const next = current + delta;
-    if (!isValidResult(next, digits)) {
-      i--;
-      continue;
+/**
+ * Генерация массива примеров (для совместимости со старым кодом)
+ * @param {number} count - Количество примеров
+ * @param {Object} settings - Настройки
+ * @returns {Array<Object>}
+ */
+export function generateExamples(count, settings = null) {
+  if (!settings) {
+    console.warn('⚠️ generateExamples вызван без настроек, используем дефолтные');
+    // Используем простую генерацию для обратной совместимости
+    const examples = [];
+    for (let i = 0; i < count; i++) {
+      examples.push(generateExample({ 
+        actions: { count: 3 },
+        blocks: { simple: { digits: ['1', '2', '3', '4'] } }
+      }));
     }
-
-    example.steps.push(`${operation}${value}`);
-    current = next;
+    return examples;
   }
 
-  example.answer = current;
-
-  console.log(`🎲 Сгенерирован пример:`, example);
-  return example;
+  const examples = [];
+  for (let i = 0; i < count; i++) {
+    examples.push(generateExample(settings));
+  }
+  
+  console.log(`📚 Сгенерировано ${examples.length} примеров`);
+  return examples;
 }
+
+// ============================================================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (для обратной совместимости)
+// ============================================================================
 
 /**
  * Вычисляет диапазон min–max для заданной разрядности
@@ -66,21 +136,6 @@ function randomInt(min, max) {
 }
 
 /**
- * Определить случайную операцию на основе настроек блоков
- * @param {Object} settings
- * @returns {string} '+' или '-'
- */
-function getRandomOperation(settings) {
-  const blocks = settings.blocks || {};
-  const hasOnlyAddition = Object.values(blocks).some(b => b.onlyAddition);
-  const hasOnlySubtraction = Object.values(blocks).some(b => b.onlySubtraction);
-
-  if (hasOnlyAddition && !hasOnlySubtraction) return '+';
-  if (hasOnlySubtraction && !hasOnlyAddition) return '-';
-  return Math.random() > 0.5 ? '+' : '-';
-}
-
-/**
  * Проверка допустимости результата в зависимости от разрядности
  * @param {number} value - Результат операции
  * @param {number} digits - Количество разрядов (1-9)
@@ -89,39 +144,4 @@ function getRandomOperation(settings) {
 function isValidResult(value, digits) {
   const { max } = getDigitRange(digits);
   return value >= 0 && value <= max;
-}
-
-/**
- * Генерация массива примеров (для совместимости со старым кодом)
- * @param {number} count - Количество примеров
- * @param {Object} settings - Настройки
- * @returns {Array<Object>}
- */
-export function generateExamples(count, settings = null) {
-  const examples = [];
-
-  if (!settings) {
-    for (let i = 0; i < count; i++) {
-      const delta = randomDelta();
-      const sign = delta > 0 ? '+' : '';
-      examples.push(`${sign}${delta}`);
-    }
-    return examples;
-  }
-
-  for (let i = 0; i < count; i++) {
-    const example = generateExample(settings);
-    examples.push(example);
-  }
-
-  return examples;
-}
-
-/**
- * Вспомогательная функция для упрощённой генерации (без настроек)
- * @returns {number}
- */
-function randomDelta() {
-  const vals = [-4, -3, -2, -1, 1, 2, 3, 4];
-  return vals[Math.floor(Math.random() * vals.length)];
 }
