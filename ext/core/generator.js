@@ -75,7 +75,9 @@ function createRuleFromSettings(settings) {
   console.log(`⚙️ Настройка количества действий: от ${config.minSteps} до ${config.maxSteps}`);
   
   // Получаем выбранные цифры из блока "Просто"
-  const selectedDigits = blocks?.simply?.selected || [1, 2, 3, 4];
+  const selectedDigits = blocks?.simple?.digits 
+    ? blocks.simple.digits.map(d => parseInt(d)) 
+    : [1, 2, 3, 4];
   
   // Определяем, какое правило использовать
   const hasFive = selectedDigits.includes(5);
