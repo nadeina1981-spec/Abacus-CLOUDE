@@ -1,63 +1,20 @@
-// ext/core/generator.js - Генератор примеров на основе настроек (ОБНОВЛЁННАЯ ВЕРСИЯ)
+// ext/core/generator.js - Главный интерфейс для trainer_logic.js
 
 import { SimpleRule } from './rules/SimpleRule.js';
+import { Simple5Rule } from './rules/Simple5Rule.js';
 import { ExampleGenerator } from './ExampleGenerator.js';
 
-/**
- * Создаёт правило на основе настроек блоков
- * @param {Object} settings - Настройки из state.settings
- * @returns {BaseRule} - Экземпляр правила
- */
-function createRuleFromSettings(settings) {
-  console.log('⚙️ Создание правила из настроек:', settings);
-  
-  // Получаем настройки блока "Просто"
-  const simpleBlock = settings.blocks?.simple || {};
-  
-  // Конфигурация правила на основе настроек
-  const config = {
-    minSteps: settings.actions?.count || 1,
-    maxSteps: settings.actions?.count || 3,
-  };
-  
-  // Если в блоке "Просто" выбраны конкретные цифры, ограничиваем действия
-  if (simpleBlock.digits && simpleBlock.digits.length > 0) {
-    const allowedDigits = simpleBlock.digits.map(d => parseInt(d, 10));
-    
-    // Формируем список разрешённых действий
-    const positiveActions = allowedDigits.filter(d => d > 0);
-    const negativeActions = allowedDigits.map(d => -d).filter(d => d < 0);
-    
-    // Если выбрано "только сложение"
-    if (simpleBlock.onlyAddition) {
-      config.allowedActions = positiveActions;
-    } 
-    // Если выбрано "только вычитание"
-    else if (simpleBlock.onlySubtraction) {
-      config.allowedActions = negativeActions;
-    }
-    // Иначе разрешены и сложение, и вычитание
-    else {
-      config.allowedActions = [...positiveActions, ...negativeActions];
-    }
-    
-    console.log('📋 Разрешённые действия из блока "Просто":', config.allowedActions);
-  }
-  
-  // Создаём правило "Просто"
-  const rule = new SimpleRule(config);
-  
-  console.log('✅ Правило создано:', rule.name, rule.config);
-  return rule;
-}
+// ============================================================================
+// ГЛАВНЫЕ ФУНКЦИИ (используются trainer_logic.js)
+// ============================================================================
 
 /**
- * Генерация одного примера на основе настроек
- * @param {Object} settings - Настройки из state.settings
- * @returns {Object} Пример: { start: 0, steps: ['+2', '-1', '+1'], answer: 2 }
+ * Генерирует один пример на основе настроек
+ * @param {Object} settings - Настройки из trainer_logic.js
+ * @returns {Object} - Пример в формате {start, steps, answer}
  */
 export function generateExample(settings) {
-  console.log('🎲 Запрос на генерацию примера с настройками:', settings);
+  console.log('⚙️ Генерация примера с настройками:', settings);
   
   // Создаём правило на основе настроек
   const rule = createRuleFromSettings(settings);
@@ -68,41 +25,26 @@ export function generateExample(settings) {
   // Генерируем пример
   const example = generator.generate();
   
-  // Конвертируем в формат для trainer_logic.js
-  const trainerExample = generator.toTrainerFormat(example);
-  
-  // Валидируем пример
-  const validation = generator.validate(example);
-  if (!validation.isValid) {
-    console.error('❌ Сгенерирован невалидный пример:', validation.errors);
-    console.error('Пример:', trainerExample);
-  } else {
-    console.log('✅ Пример валиден:', trainerExample);
-  }
-  
-  return trainerExample;
+  // Конвертируем в формат trainer
+  return generator.toTrainerFormat(example);
 }
 
 /**
- * Генерация массива примеров (для совместимости со старым кодом)
+ * Генерирует несколько примеров
+ * @param {Object} settings - Настройки из trainer_logic.js
  * @param {number} count - Количество примеров
- * @param {Object} settings - Настройки
- * @returns {Array<Object>}
+ * @returns {Array} - Массив примеров
  */
-export function generateExamples(count, settings = null) {
-  if (!settings) {
-    console.warn('⚠️ generateExamples вызван без настроек, используем дефолтные');
-    // Используем простую генерацию для обратной совместимости
-    const examples = [];
-    for (let i = 0; i < count; i++) {
-      examples.push(generateExample({ 
-        actions: { count: 3 },
-        blocks: { simple: { digits: ['1', '2', '3', '4'] } }
-      }));
-    }
-    return examples;
+export function generateExamples(settings, count) {
+  console.log(`⚙️ Генерация ${count} примеров...`);
+  
+  // Если включен режим "без повторений"
+  if (settings.noRepeat) {
+    console.log('🔄 Режим "без повторений" включен');
+    return generateUniqueExamples(settings, count);
   }
-
+  
+  // Обычная генерация с возможными повторениями
   const examples = [];
   for (let i = 0; i < count; i++) {
     examples.push(generateExample(settings));
@@ -110,6 +52,77 @@ export function generateExamples(count, settings = null) {
   
   console.log(`📚 Сгенерировано ${examples.length} примеров`);
   return examples;
+}
+
+// ============================================================================
+// ВНУТРЕННИЕ ФУНКЦИИ
+// ============================================================================
+
+/**
+ * Создаёт правило на основе настроек
+ * @private
+ */
+function createRuleFromSettings(settings) {
+  const { blocks, steps } = settings;
+  
+  // Определяем конфигурацию правила
+  const config = {
+    minSteps: steps?.min || 1,
+    maxSteps: steps?.max || 3
+  };
+  
+  // Получаем выбранные цифры из блока "Просто"
+  const selectedDigits = blocks?.simply?.selected || [1, 2, 3, 4];
+  
+  // Определяем, какое правило использовать
+  const hasFive = selectedDigits.includes(5);
+  
+  if (hasFive) {
+    // Если выбрана цифра 5 → используем Simple5Rule
+    console.log(`✅ Правило создано: Simple5Rule (цифры: ${selectedDigits.join(', ')})`);
+    return new Simple5Rule(config);
+  } else {
+    // Если цифра 5 не выбрана → используем SimpleRule
+    console.log(`✅ Правило создано: SimpleRule (цифры: ${selectedDigits.join(', ')})`);
+    return new SimpleRule(config);
+  }
+}
+
+/**
+ * Генерирует уникальные примеры (без повторений)
+ * @private
+ */
+function generateUniqueExamples(settings, count) {
+  const examples = [];
+  const seen = new Set();
+  const maxAttempts = count * 10; // Ограничение попыток
+  
+  let attempts = 0;
+  while (examples.length < count && attempts < maxAttempts) {
+    attempts++;
+    
+    const example = generateExample(settings);
+    const key = exampleToKey(example);
+    
+    if (!seen.has(key)) {
+      seen.add(key);
+      examples.push(example);
+    }
+  }
+  
+  if (examples.length < count) {
+    console.warn(`⚠️ Удалось сгенерировать только ${examples.length} из ${count} уникальных примеров`);
+  }
+  
+  return examples;
+}
+
+/**
+ * Преобразует пример в уникальный ключ для сравнения
+ * @private
+ */
+function exampleToKey(example) {
+  return `${example.start}|${example.steps.join('|')}|${example.answer}`;
 }
 
 // ============================================================================
