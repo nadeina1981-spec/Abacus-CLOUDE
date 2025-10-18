@@ -1,39 +1,39 @@
-// ext/core/rules/BaseRule.js - Базовый класс для всех правил
+// ext/core/rules/BaseRule.js - Базовое правило для генерации примеров
 
 /**
- * BaseRule - базовый класс для правил генерации примеров
- * Все правила наследуются от этого класса
+ * BaseRule - абстрактный базовый класс для всех правил генерации примеров
+ * Определяет общую логику и интерфейс, который должны реализовать все правила
  */
 export class BaseRule {
   constructor(config = {}) {
-    this.name = "Base";
-    this.description = "Базовое правило";
+    this.name = "Базовое правило";
+    this.description = "Базовая логика для всех правил";
+    
+    // Конфигурация по умолчанию
     this.config = {
-      minState: 0,
-      maxState: 4,
-      minSteps: 1,
-      maxSteps: 3,
-      allowedActions: [],
-      forbiddenActions: [],
+      minState: 0,           // Минимальное состояние
+      maxState: 9,           // Максимальное состояние
+      minSteps: 1,           // Минимальное количество шагов
+      maxSteps: 3,           // Максимальное количество шагов
+      allowedActions: [],    // Разрешённые действия (будут установлены в наследниках)
+      forbiddenActions: [],  // Запрещённые действия
       ...config
     };
   }
 
   /**
-   * Проверяет, валидно ли состояние
-   * @param {number} state - Текущее состояние
+   * Проверяет, является ли состояние валидным
+   * @param {number} state - Состояние для проверки
    * @returns {boolean}
    */
   isValidState(state) {
-    return Number.isInteger(state) && 
-           state >= this.config.minState && 
-           state <= this.config.maxState;
+    return state >= this.config.minState && state <= this.config.maxState;
   }
 
   /**
    * Применяет действие к состоянию
    * @param {number} state - Текущее состояние
-   * @param {number} action - Действие (±число)
+   * @param {number} action - Действие (например, +2 или -1)
    * @returns {number} - Новое состояние
    */
   applyAction(state, action) {
@@ -41,53 +41,53 @@ export class BaseRule {
   }
 
   /**
-   * Получает все возможные действия из текущего состояния
+   * Получает доступные действия для текущего состояния
    * @param {number} currentState - Текущее состояние
    * @returns {number[]} - Массив доступных действий
    */
   getAvailableActions(currentState) {
-    return this.config.allowedActions.filter(action => {
-      // Проверяем, что действие не запрещено
-      if (this.config.forbiddenActions.includes(action)) {
-        return false;
+    const actions = [];
+    
+    for (const action of this.config.allowedActions) {
+      if (this.isValidAction(currentState, action)) {
+        actions.push(action);
       }
-      
-      // Проверяем, что новое состояние в границах
-      const newState = this.applyAction(currentState, action);
-      return this.isValidState(newState);
-    });
+    }
+    
+    return actions;
   }
 
   /**
-   * Проверяет, валидно ли действие из текущего состояния
+   * Проверяет, является ли действие валидным для текущего состояния
    * @param {number} currentState - Текущее состояние
-   * @param {number} action - Действие
+   * @param {number} action - Действие для проверки
    * @returns {boolean}
    */
   isValidAction(currentState, action) {
+    // Проверка: действие не запрещено
     if (this.config.forbiddenActions.includes(action)) {
       return false;
     }
     
-    if (!this.config.allowedActions.includes(action)) {
+    // Проверка: результат не выходит за границы
+    const newState = this.applyAction(currentState, action);
+    if (!this.isValidState(newState)) {
       return false;
     }
     
-    const newState = this.applyAction(currentState, action);
-    return this.isValidState(newState);
+    return true;
   }
 
   /**
-   * Генерирует случайное начальное состояние
+   * Генерирует начальное состояние
    * @returns {number}
    */
   generateStartState() {
-    const { minState, maxState } = this.config;
-    return Math.floor(Math.random() * (maxState - minState + 1)) + minState;
+    return 0; // По умолчанию начинаем с 0
   }
 
   /**
-   * Генерирует случайную длину примера
+   * Генерирует количество шагов
    * @returns {number}
    */
   generateStepsCount() {
@@ -98,10 +98,9 @@ export class BaseRule {
   /**
    * Форматирует действие для отображения
    * @param {number} action - Действие
-   * @returns {string}
+   * @returns {string} - Отформатированная строка (например, "+2" или "-1")
    */
   formatAction(action) {
     return action > 0 ? `+${action}` : `${action}`;
   }
 }
-
