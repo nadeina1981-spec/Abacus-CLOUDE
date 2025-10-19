@@ -38,50 +38,48 @@ export class Simple5Rule extends SimpleRule {
    * Получает доступные действия с учётом физических ограничений
    * @param {number} currentState - Текущее состояние
    * @param {boolean} isFirstAction - Первое ли это действие
-   * @returns {number[]} - Массив доступных действий
+   * @returns {number[]} - Массив доступных действий (с весами)
    */
- getAvailableActions(currentState, isFirstAction = false) {
-  let actions = super.getAvailableActions(currentState, isFirstAction);
-  
-  // Определяем физическое состояние
-  const isUpperActive = (currentState >= 5);
-  const activeLower = isUpperActive ? currentState - 5 : currentState;
-  const inactiveLower = 4 - activeLower;
-  
-  // Фильтруем действия на основе физики
-  const validActions = actions.filter(action => {
-    if (action === 5) {
-      return !isUpperActive && (currentState + 5 <= 9);
-    }
-    else if (action === -5) {
-      return isUpperActive;
-    }
-    else if (action > 0 && action < 5) {
-      return inactiveLower >= action;
-    }
-    else if (action < 0 && action > -5) {
-      return activeLower >= Math.abs(action);
-    }
-    return true;
-  });
-  
-  // ✅ ПРИОРИТЕТ для ±5: если доступны, добавляем их 5 раз для увеличения шанса
-  const finalActions = [];
-  validActions.forEach(action => {
-    if (Math.abs(action) === 5) {
-      // ±5 добавляем 5 раз (шанс ~83% при равных условиях)
-      for (let i = 0; i < 5; i++) {
-        finalActions.push(action);
+  getAvailableActions(currentState, isFirstAction = false) {
+    let actions = super.getAvailableActions(currentState, isFirstAction);
+    
+    // Определяем физическое состояние
+    const isUpperActive = (currentState >= 5);
+    const activeLower = isUpperActive ? currentState - 5 : currentState;
+    const inactiveLower = 4 - activeLower;
+    
+    // Фильтруем действия на основе физики
+    const validActions = actions.filter(action => {
+      if (action === 5) {
+        // +5 только если верхняя НЕ активна и не выходим за 9
+        return !isUpperActive && (currentState + 5 <= 9);
+      } else if (action === -5) {
+        // -5 только если верхняя активна
+        return isUpperActive;
+      } else if (action > 0 && action < 5) {
+        // +1..+4 — только если есть достаточно НЕактивных нижних
+        return inactiveLower >= action;
+      } else if (action < 0 && action > -5) {
+        // -1..-4 — только если есть достаточно АКТИВНЫХ нижних
+        return activeLower >= Math.abs(action);
       }
-    } else {
-      finalActions.push(action);
-    }
-  });
-  
-  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(finalActions)].join(', ')}]`);
-  return finalActions;
-}
-    /**
+      return true;
+    });
+
+    // ✅ Усиливаем вероятность ±5 «на порядок»
+    // Вместо пяти дублей — десять (≈×10 к вероятности при прочих равных)
+    const WEIGHT_5 = 10;
+    const weighted = validActions.flatMap(a => (
+      Math.abs(a) === 5 ? Array(WEIGHT_5).fill(a) : [a]
+    ));
+
+    // Лог (уникальные доступные значения без весов — для отладки)
+    console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(validActions)].join(', ')}]`);
+
+    return weighted;
+  }
+
+  /**
    * Валидация полного примера с учётом правил Simple5
    * @param {Object} example - Пример {start, steps, answer}
    * @returns {boolean}
