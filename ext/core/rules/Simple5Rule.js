@@ -41,43 +41,37 @@ export class Simple5Rule extends SimpleRule {
    * @returns {number[]} - Массив доступных действий
    */
   getAvailableActions(currentState, isFirstAction = false) {
-    // Сначала получаем базовые доступные действия от SimpleRule
-    let actions = super.getAvailableActions(currentState, isFirstAction);
-    
-    // ФИЗИЧЕСКОЕ ОГРАНИЧЕНИЕ: Нельзя добавлять нижние косточки к уже имеющимся 5+
-    // Если состояние >= 5, то нельзя делать +1, +2, +3, +4
-    if (currentState >= 5) {
-      actions = actions.filter(action => {
-        // Можно: -1, -2, -3, -4, -5 (убираем косточки)
-        // Можно: +5 (если не выходим за 9)
-        // Нельзя: +1, +2, +3, +4 (физически невозможно!)
-        return action < 0 || action === 5;
-      });
-      console.log(`🔒 Состояние ${currentState} ≥ 5 → запрещены +1,+2,+3,+4`);
+  let actions = super.getAvailableActions(currentState, isFirstAction);
+  
+  // Определяем физическое состояние
+  const isUpperActive = (currentState >= 5);
+  const activeLower = isUpperActive ? currentState - 5 : currentState;
+  const inactiveLower = 4 - activeLower;
+  
+  // Фильтруем действия на основе физики
+  actions = actions.filter(action => {
+    if (action === 5) {
+      // +5: можно только если верхняя НЕ активна и не выходим за 9
+      return !isUpperActive && (currentState + 5 <= 9);
     }
-    
-    // ФИЗИЧЕСКОЕ ОГРАНИЧЕНИЕ: Если на абакусе 4 нижние косточки,
-    // нельзя добавлять ещё нижние (должны использовать +5)
-    if (currentState === 4) {
-      actions = actions.filter(action => action !== 1);
-      console.log(`🔒 Состояние 4 → запрещено +1 (должен быть +5)`);
+    else if (action === -5) {
+      // -5: можно только если верхняя АКТИВНА
+      return isUpperActive;
     }
-    if (currentState === 3) {
-      actions = actions.filter(action => ![1, 2].includes(action));
-      console.log(`🔒 Состояние 3 → запрещены +1,+2 (должен быть +5)`);
+    else if (action > 0 && action < 5) {
+      // +1,+2,+3,+4: можно только если есть неактивные нижние
+      return inactiveLower >= action;
     }
-    if (currentState === 2) {
-      actions = actions.filter(action => ![1, 2, 3].includes(action));
-      console.log(`🔒 Состояние 2 → запрещены +1,+2,+3 (должен быть +5)`);
+    else if (action < 0 && action > -5) {
+      // -1,-2,-3,-4: можно только если есть активные нижние
+      return activeLower >= Math.abs(action);
     }
-    if (currentState === 1) {
-      actions = actions.filter(action => ![1, 2, 3, 4].includes(action));
-      console.log(`🔒 Состояние 1 → запрещены +1,+2,+3,+4 (должен быть +5)`);
-    }
-    
-    console.log(`✅ Физически доступные действия из ${currentState}: [${actions.join(', ')}]`);
-    return actions;
-  }
+    return true;
+  });
+  
+  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${actions.join(', ')}]`);
+  return actions;
+}
 
   /**
    * Валидация полного примера с учётом правил Simple5
@@ -100,14 +94,7 @@ export class Simple5Rule extends SimpleRule {
       console.error(`❌ Первое действие ${steps[0].action} не положительное`);
       return false;
     }
-    
-    // 3. В примере ОБЯЗАТЕЛЬНО должна быть хотя бы одна операция ±5
-    const has5 = steps.some(step => Math.abs(step.action) === 5);
-    if (!has5) {
-      console.error(`❌ В примере нет операций ±5 (должен быть SimpleRule, а не Simple5Rule)`);
-      return false;
-    }
-    
+          
     // 4. Финальное состояние должно быть 0-5 (закрылся)
     if (answer > this.config.maxFinalState) {
       console.error(`❌ Финальное состояние ${answer} > 5 (не закрылся пример)`);
