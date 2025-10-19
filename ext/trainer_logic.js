@@ -80,6 +80,13 @@ export function mountTrainerUI(container, { t, state }) {
   container.appendChild(layout);
 
   // === Плавающий абакус ===
+  // ИСПРАВЛЕНИЕ: Удаляем старый абакус, если он есть
+  const oldAbacus = document.getElementById("abacus-wrapper");
+  if (oldAbacus) {
+    oldAbacus.remove();
+    console.log("🗑️ Старый абакус удален");
+  }
+
   const abacusWrapper = document.createElement("div");
   abacusWrapper.className = "abacus-wrapper";
   abacusWrapper.id = "abacus-wrapper";
@@ -262,6 +269,15 @@ export function mountTrainerUI(container, { t, state }) {
   // === Старт ===
   showNextExample();
   console.log(`✅ Тренажёр запущен (${abacusDigits} стоек, ${digits}-значные числа)`);
+  
+  // ИСПРАВЛЕНИЕ: Возвращаем функцию очистки
+  return () => {
+    const wrapper = document.getElementById("abacus-wrapper");
+    if (wrapper) {
+      wrapper.remove();
+      console.log("🗑️ Абакус удален при размонтировании");
+    }
+  };
 }
 
 /**
