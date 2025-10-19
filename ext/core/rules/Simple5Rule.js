@@ -51,29 +51,40 @@ export class Simple5Rule extends SimpleRule {
   // Фильтруем действия на основе физики
   actions = actions.filter(action => {
     if (action === 5) {
-      // +5: можно только если верхняя НЕ активна и не выходим за 9
       return !isUpperActive && (currentState + 5 <= 9);
     }
     else if (action === -5) {
-      // -5: можно только если верхняя АКТИВНА
       return isUpperActive;
     }
     else if (action > 0 && action < 5) {
-      // +1,+2,+3,+4: можно только если есть неактивные нижние
       return inactiveLower >= action;
     }
     else if (action < 0 && action > -5) {
-      // -1,-2,-3,-4: можно только если есть активные нижние
       return activeLower >= Math.abs(action);
     }
     return true;
   });
   
-  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${actions.join(', ')}]`);
+  // ✅ НОВОЕ: Увеличиваем вероятность выбора ±5
+  // Если ±5 доступны, дублируем их для повышения шанса
+  const has5 = actions.includes(5);
+  const hasMinus5 = actions.includes(-5);
+  
+  if (has5 || hasMinus5) {
+    const enhanced = [...actions];
+    if (has5) {
+      enhanced.push(5, 5); // Утраиваем шанс +5
+    }
+    if (hasMinus5) {
+      enhanced.push(-5, -5); // Утраиваем шанс -5
+    }
+    actions = enhanced;
+  }
+  
+  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(actions)].join(', ')}]`);
   return actions;
 }
-
-  /**
+    /**
    * Валидация полного примера с учётом правил Simple5
    * @param {Object} example - Пример {start, steps, answer}
    * @returns {boolean}
