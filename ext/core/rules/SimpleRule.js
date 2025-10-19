@@ -71,7 +71,9 @@ export class SimpleRule extends BaseRule {
   }
   
   console.log(`✅ Доступные действия из ${currentState} (акт:${activeLower}, неакт:${inactiveLower}): [${actions.join(', ')}]`);
-  return actions;
+  const allowedMagnitudes = new Set(this.config && this.config.selectedDigits ? this.config.selectedDigits : [1,2,3,4]);
+  const filteredByChoice = actions.filter(a => allowedMagnitudes.has(Math.abs(a)));
+  return filteredByChoice;
 }
   /**
    * Валидация полного примера

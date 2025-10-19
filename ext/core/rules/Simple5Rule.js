@@ -49,7 +49,7 @@ export class Simple5Rule extends SimpleRule {
     const inactiveLower = 4 - activeLower;
     
     // Фильтруем действия на основе физики
-    const validActions = actions.filter(action => {
+    let validActions = actions.filter(action => {
       if (action === 5) {
         // +5 только если верхняя НЕ активна и не выходим за 9
         return !isUpperActive && (currentState + 5 <= 9);
@@ -73,10 +73,24 @@ export class Simple5Rule extends SimpleRule {
       Math.abs(a) === 5 ? Array(WEIGHT_5).fill(a) : [a]
     ));
 
-    // Лог (уникальные доступные значения без весов — для отладки)
+    // Фильтрация по выбранным цифрам
+    const allowedMagnitudes = new Set(this.config && this.config.selectedDigits ? this.config.selectedDigits : [1,2,3,4,5]);
+    let filteredByChoice = validActions.filter(a => allowedMagnitudes.has(Math.abs(a)));
+
+    // Если выбрана только 5 и на шаге доступны ±5 — используем их
+    if (this.config && this.config.onlyFiveSelected) {
+      const only5 = filteredByChoice.filter(a => Math.abs(a) === 5);
+      if (only5.length > 0) filteredByChoice = only5;
+    }
+
+    // Повторно применяем веса уже к отфильтрованным
+    const weightedFinal = filteredByChoice.flatMap(a => (
+      Math.abs(a) === 5 ? Array(WEIGHT_5).fill(a) : [a]
+    ));
+
     console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(filteredByChoice)].join(', ')}]`);
 
-    return weighted;
+    return weightedFinal;
   }
 
   /**
