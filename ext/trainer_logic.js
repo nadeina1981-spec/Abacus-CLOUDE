@@ -154,14 +154,14 @@ export function mountTrainerUI(container, { t, state }) {
             : [1, 2, 3, 4]
         }
       },
-      actions: {
-        min: state.settings.actions.infinite 
-          ? 2 
-          : Math.max(1, state.settings.actions.count - 1),
-        max: state.settings.actions.infinite 
-          ? 5 
-          : Math.max(2, state.settings.actions.count + 1)
-      }
+     actions: {
+  min: state.settings.actions.infinite 
+    ? 2 
+    : state.settings.actions.count,  // ✅ Фиксированное количество
+  max: state.settings.actions.infinite 
+    ? 5 
+    : state.settings.actions.count   // ✅ Фиксированное количество
+}
     });
 
     exampleView.render(session.currentExample.steps, displayMode);
