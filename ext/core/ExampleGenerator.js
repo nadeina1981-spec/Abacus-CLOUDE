@@ -42,42 +42,69 @@ export class ExampleGenerator {
    * Одна попытка генерации примера
    * @private
    */
-  _generateAttempt() {
-    const start = this.rule.generateStartState();
-    const stepsCount = this.rule.generateStepsCount();
+ _generateAttempt() {
+  const start = this.rule.generateStartState();
+  const stepsCount = this.rule.generateStepsCount();
+  
+  console.log(`🎲 Генерация примера: старт=${start}, шагов=${stepsCount}`);
+  
+  const steps = [];
+  let currentState = start;
+  let has5Action = false; // Отслеживаем использование ±5
+  
+  for (let i = 0; i < stepsCount; i++) {
+    const isFirstAction = (i === 0);
+    const isLastAction = (i === stepsCount - 1);
+    let availableActions = this.rule.getAvailableActions(currentState, isFirstAction);
     
-    console.log(`🎲 Генерация примера: старт=${start}, шагов=${stepsCount}`);
-    
-    const steps = [];
-    let currentState = start;
-    
-    for (let i = 0; i < stepsCount; i++) {
-      const isFirstAction = (i === 0);
-      const availableActions = this.rule.getAvailableActions(currentState, isFirstAction);
-      
-      if (availableActions.length === 0) {
-        throw new Error(`Нет доступных действий из состояния ${currentState}`);
-      }
-      
-      // Выбираем случайное действие
-      const action = availableActions[Math.floor(Math.random() * availableActions.length)];
-      const newState = this.rule.applyAction(currentState, action);
-      
-      steps.push({
-        action: action,
-        fromState: currentState,
-        toState: newState
-      });
-      
-      currentState = newState;
+    if (availableActions.length === 0) {
+      throw new Error(`Нет доступных действий из состояния ${currentState}`);
     }
     
-    return {
-      start: start,
-      steps: steps,
-      answer: currentState
-    };
+    // ✅ НОВОЕ: Для Simple5Rule форсируем ±5 в середине примера
+    if (this.rule.name === "Просто с 5" && !has5Action && i >= Math.floor(stepsCount / 2)) {
+      const actions5 = availableActions.filter(a => Math.abs(a) === 5);
+      if (actions5.length > 0 && Math.random() < 0.8) {
+        // 80% шанс выбрать ±5 если доступно
+        availableActions = actions5;
+      }
+    }
+    
+    // ✅ НОВОЕ: На последнем шаге избегаем действий, ведущих к 0
+    if (isLastAction && currentState <= 4) {
+      const nonZeroActions = availableActions.filter(action => {
+        const result = currentState + action;
+        return result !== 0;
+      });
+      if (nonZeroActions.length > 0) {
+        availableActions = nonZeroActions;
+      }
+    }
+    
+    // Выбираем случайное действие
+    const action = availableActions[Math.floor(Math.random() * availableActions.length)];
+    const newState = this.rule.applyAction(currentState, action);
+    
+    // Отмечаем если использовали ±5
+    if (Math.abs(action) === 5) {
+      has5Action = true;
+    }
+    
+    steps.push({
+      action: action,
+      fromState: currentState,
+      toState: newState
+    });
+    
+    currentState = newState;
   }
+  
+  return {
+    start: start,
+    steps: steps,
+    answer: currentState
+  };
+}
 
   /**
    * Генерирует несколько примеров
