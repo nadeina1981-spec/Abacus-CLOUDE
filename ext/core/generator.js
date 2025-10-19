@@ -1,67 +1,3 @@
-// ext/core/generator.js - Главный интерфейс для trainer_logic.js
-
-import { SimpleRule } from './rules/SimpleRule.js';
-import { Simple5Rule } from './rules/Simple5Rule.js';
-import { ExampleGenerator } from './ExampleGenerator.js';
-
-// ============================================================================
-// ГЛАВНЫЕ ФУНКЦИИ (используются trainer_logic.js)
-// ============================================================================
-
-/**
- * Генерирует один пример на основе настроек
- * @param {Object} settings - Настройки из trainer_logic.js
- * @returns {Object} - Пример в формате {start, steps, answer}
- */
-export function generateExample(settings) {
-  console.log('⚙️ Генерация примера с настройками:', settings);
-  
-  // Создаём правило на основе настроек
-  const rule = createRuleFromSettings(settings);
-  
-  // Создаём генератор
-  const generator = new ExampleGenerator(rule);
-  
-  // Генерируем пример
-  const example = generator.generate();
-  
-  // Конвертируем в формат trainer
-  return generator.toTrainerFormat(example);
-}
-
-/**
- * Генерирует несколько примеров
- * @param {Object} settings - Настройки из trainer_logic.js
- * @param {number} count - Количество примеров
- * @returns {Array} - Массив примеров
- */
-export function generateExamples(settings, count) {
-  console.log(`⚙️ Генерация ${count} примеров...`);
-  
-  // Если включен режим "без повторений"
-  if (settings.noRepeat) {
-    console.log('🔄 Режим "без повторений" включен');
-    return generateUniqueExamples(settings, count);
-  }
-  
-  // Обычная генерация с возможными повторениями
-  const examples = [];
-  for (let i = 0; i < count; i++) {
-    examples.push(generateExample(settings));
-  }
-  
-  console.log(`📚 Сгенерировано ${examples.length} примеров`);
-  return examples;
-}
-
-// ============================================================================
-// ВНУТРЕННИЕ ФУНКЦИИ
-// ============================================================================
-
-/**
- * Создаёт правило на основе настроек
- * @private
- */
 function createRuleFromSettings(settings) {
   const { blocks, actions } = settings;
 
@@ -97,8 +33,8 @@ function createRuleFromSettings(settings) {
   // Определяем конфигурацию правила
   const config = {
     // Количество шагов (действий) в примере
-    minSteps: actions?.min || steps?.min || 2,
-    maxSteps: actions?.max || steps?.max || 4
+    minSteps: actions?.min || /*removed_steps_ref*/ || 2,
+    maxSteps: actions?.max || /*removed_steps_ref*/ || 4
   };
   
   console.log(`⚙️ Настройка количества действий: от ${config.minSteps} до ${config.maxSteps}`);
