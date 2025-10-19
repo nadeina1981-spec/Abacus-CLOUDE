@@ -74,7 +74,7 @@ export class Simple5Rule extends SimpleRule {
     ));
 
     // Лог (уникальные доступные значения без весов — для отладки)
-    console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(validActions)].join(', ')}]`);
+    console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(filteredByChoice)].join(', ')}]`);
 
     return weighted;
   }
