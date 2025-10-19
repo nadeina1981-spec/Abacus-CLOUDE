@@ -40,7 +40,7 @@ export class Simple5Rule extends SimpleRule {
    * @param {boolean} isFirstAction - Первое ли это действие
    * @returns {number[]} - Массив доступных действий
    */
-  getAvailableActions(currentState, isFirstAction = false) {
+ getAvailableActions(currentState, isFirstAction = false) {
   let actions = super.getAvailableActions(currentState, isFirstAction);
   
   // Определяем физическое состояние
@@ -49,7 +49,7 @@ export class Simple5Rule extends SimpleRule {
   const inactiveLower = 4 - activeLower;
   
   // Фильтруем действия на основе физики
-  actions = actions.filter(action => {
+  const validActions = actions.filter(action => {
     if (action === 5) {
       return !isUpperActive && (currentState + 5 <= 9);
     }
@@ -65,24 +65,21 @@ export class Simple5Rule extends SimpleRule {
     return true;
   });
   
-  // ✅ НОВОЕ: Увеличиваем вероятность выбора ±5
-  // Если ±5 доступны, дублируем их для повышения шанса
-  const has5 = actions.includes(5);
-  const hasMinus5 = actions.includes(-5);
-  
-  if (has5 || hasMinus5) {
-    const enhanced = [...actions];
-    if (has5) {
-      enhanced.push(5, 5); // Утраиваем шанс +5
+  // ✅ ПРИОРИТЕТ для ±5: если доступны, добавляем их 5 раз для увеличения шанса
+  const finalActions = [];
+  validActions.forEach(action => {
+    if (Math.abs(action) === 5) {
+      // ±5 добавляем 5 раз (шанс ~83% при равных условиях)
+      for (let i = 0; i < 5; i++) {
+        finalActions.push(action);
+      }
+    } else {
+      finalActions.push(action);
     }
-    if (hasMinus5) {
-      enhanced.push(-5, -5); // Утраиваем шанс -5
-    }
-    actions = enhanced;
-  }
+  });
   
-  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(actions)].join(', ')}]`);
-  return actions;
+  console.log(`✅ Доступные действия из ${currentState} (верх:${isUpperActive}, акт:${activeLower}, неакт:${inactiveLower}): [${[...new Set(finalActions)].join(', ')}]`);
+  return finalActions;
 }
     /**
    * Валидация полного примера с учётом правил Simple5
