@@ -146,14 +146,21 @@ export function mountTrainerUI(container, { t, state }) {
     }
 
     // ✅ ИСПРАВЛЕННЫЙ ВЫЗОВ generateExample
+    const selectedDigits = state.settings.blocks.simple.digits.length > 0 
+  ? state.settings.blocks.simple.digits.map(d => parseInt(d))
+  : [1, 2, 3, 4];
+    
     session.currentExample = generateExample({
-      blocks: {
-        simple: {
-          digits: state.settings.blocks.simple.digits.length > 0 
-            ? state.settings.blocks.simple.digits.map(d => parseInt(d))
-            : [1, 2, 3, 4]
-        }
-      },
+  blocks: {
+    simple: {
+      digits: selectedDigits
+    }
+  },
+  actions: {
+    min: state.settings.actions.infinite ? 2 : state.settings.actions.count,
+    max: state.settings.actions.infinite ? 5 : state.settings.actions.count
+  }
+});
      actions: {
   min: state.settings.actions.infinite 
     ? 2 
