@@ -40,25 +40,39 @@ export class SimpleRule extends BaseRule {
    * @param {boolean} isFirstAction - Первое ли это действие в цепочке
    * @returns {number[]} - Массив доступных действий
    */
-  getAvailableActions(currentState, isFirstAction = false) {
-    let actions = super.getAvailableActions(currentState);
-    
-    // ПРАВИЛО 1: Первое действие всегда положительное
-    if (isFirstAction && this.config.firstActionMustBePositive) {
-      actions = actions.filter(action => action > 0);
-      console.log(`🎯 Первое действие: [${actions.join(', ')}]`);
+ getAvailableActions(currentState, isFirstAction = false) {
+  let actions = super.getAvailableActions(currentState);
+  
+  // Определяем физическое состояние для нижних бусин
+  const activeLower = currentState;
+  const inactiveLower = 4 - activeLower;
+  
+  // Фильтруем действия на основе физики
+  actions = actions.filter(action => {
+    if (action > 0) {
+      // Прибавление: нужны неактивные нижние
+      return inactiveLower >= action;
+    } else {
+      // Вычитание: нужны активные нижние
+      return activeLower >= Math.abs(action);
     }
-    
-    // ПРАВИЛО 2: Если состояние = 0, следующее действие только положительное
-    if (currentState === 0 && !isFirstAction) {
-      actions = actions.filter(action => action > 0);
-      console.log(`⚠️ Состояние 0 → доступны только положительные: [${actions.join(', ')}]`);
-    }
-    
-    console.log(`✅ Доступные действия из ${currentState}: [${actions.join(', ')}]`);
-    return actions;
+  });
+  
+  // ПРАВИЛО 1: Первое действие всегда положительное
+  if (isFirstAction && this.config.firstActionMustBePositive) {
+    actions = actions.filter(action => action > 0);
+    console.log(`🎯 Первое действие: [${actions.join(', ')}]`);
   }
-
+  
+  // ПРАВИЛО 2: Если состояние = 0, следующее действие только положительное
+  if (currentState === 0 && !isFirstAction) {
+    actions = actions.filter(action => action > 0);
+    console.log(`⚠️ Состояние 0 → доступны только положительные: [${actions.join(', ')}]`);
+  }
+  
+  console.log(`✅ Доступные действия из ${currentState} (акт:${activeLower}, неакт:${inactiveLower}): [${actions.join(', ')}]`);
+  return actions;
+}
   /**
    * Валидация полного примера
    * @param {Object} example - Пример {start, steps, answer}
@@ -117,3 +131,4 @@ export class SimpleRule extends BaseRule {
     return true;
   }
 }
+
