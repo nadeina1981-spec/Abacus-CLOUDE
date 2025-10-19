@@ -63,7 +63,36 @@ export function generateExamples(settings, count) {
  * @private
  */
 function createRuleFromSettings(settings) {
-  const { blocks, steps, actions } = settings;
+  const { blocks, actions } = settings;
+
+  // Нормализуем выбор цифр из блока "Просто"
+  const selectedDigits = (blocks && blocks.simple && Array.isArray(blocks.simple.digits) && blocks.simple.digits.length > 0)
+    ? blocks.simple.digits.map(d => parseInt(d, 10))
+    : [1, 2, 3, 4];
+
+  const hasFive = selectedDigits.includes(5);
+  const onlyFiveSelected = (selectedDigits.length === 1 && selectedDigits[0] === 5);
+
+  // Количество шагов берём только из actions
+  const minSteps = actions && Number.isFinite(actions.min) ? Number(actions.min) : 2;
+  const maxSteps = actions && Number.isFinite(actions.max) ? Number(actions.max) : 4;
+
+  const config = {
+    minSteps,
+    maxSteps,
+    selectedDigits,
+    onlyFiveSelected,
+  };
+
+  if (hasFive) {
+    console.log(`✅ Правило создано: Simple5Rule (цифры: ${selectedDigits.join(', ')})`);
+    return new Simple5Rule(config);
+  } else {
+    console.log(`✅ Правило создано: SimpleRule (цифры: ${selectedDigits.join(', ')})`);
+    return new SimpleRule(config);
+  }
+}
+ = settings;
   
   // Определяем конфигурацию правила
   const config = {
