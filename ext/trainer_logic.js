@@ -145,12 +145,13 @@ export function mountTrainerUI(container, { t, state }) {
       return;
     }
 
-    // ✅ ИСПРАВЛЕННЫЙ ВЫЗОВ generateExample
-    const selectedDigits = state.settings.blocks.simple.digits.length > 0 
-  ? state.settings.blocks.simple.digits.map(d => parseInt(d))
-  : [1, 2, 3, 4];
-    
-    session.currentExample = generateExample({
+   // ✅ ИСПРАВЛЕННЫЙ ВЫЗОВ generateExample
+const selectedDigits =
+  state.settings.blocks.simple.digits.length > 0
+    ? state.settings.blocks.simple.digits.map(d => parseInt(d, 10))
+    : [1, 2, 3, 4];
+
+session.currentExample = generateExample({
   blocks: {
     simple: {
       digits: selectedDigits
@@ -161,17 +162,9 @@ export function mountTrainerUI(container, { t, state }) {
     max: state.settings.actions.infinite ? 5 : state.settings.actions.count
   }
 });
-     actions: {
-  min: state.settings.actions.infinite 
-    ? 2 
-    : state.settings.actions.count,  // ✅ Фиксированное количество
-  max: state.settings.actions.infinite 
-    ? 5 
-    : state.settings.actions.count   // ✅ Фиксированное количество
-}
-    });
 
-    exampleView.render(session.currentExample.steps, displayMode);
+exampleView.render(session.currentExample.steps, displayMode);
+
 
     // === НОВАЯ АДАПТИВНАЯ ЛОГИКА ===
     const areaExample = document.getElementById("area-example");
