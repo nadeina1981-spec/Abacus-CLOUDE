@@ -76,7 +76,7 @@ function createRuleFromSettings(settings) {
   
   // Получаем выбранные цифры из блока "Просто"
   const selectedDigits = blocks?.simple?.digits 
-    ? blocks.simple.digits.map(d => parseInt(d)) 
+    ? blocks.simple.digits.map(d => parseInt(d, 10)) 
     : [1, 2, 3, 4];
   
   // Определяем, какое правило использовать
