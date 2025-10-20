@@ -889,25 +889,30 @@ body.game-screen .screen__body {
   color: var(--color-muted);
   letter-spacing: .02em;
 }
-/* === Header sizing tweaks === */
-/* 1) Увеличить "Mind Abacuc" на +15% */
+/* === Шапка: финальные размеры и выравнивание === */
 .app-header__title {
-  font-size: calc(1.9rem * 1.15); /* ≈ 2.185rem */
+  font-size: 2.2rem !important;    /* +15% относительно исходных 1.9rem */
+  font-family: "Baloo 2", cursive;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff8ec;
 }
 
-/* 2) Сделать слоган на 30% меньше, чем заголовок, и чуть сместить вправо */
 .app-header__tagline {
-  font-size: calc(1.9rem * 1.15 * 0.70); /* 70% от заголовка ≈ 1.53rem */
-  margin-left: 8px;                      /* «немного правее» */
+  font-size: 1.5rem !important;    /* ~на 30% меньше, чем заголовок */
+  margin-left: 10px;               /* немного правее */
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.02em;
+  opacity: 0.9;
 }
 
-/* Мобильные поправки, чтобы сохранялась пропорция */
+/* Мобильная адаптация */
 @media (max-width: 640px) {
   .app-header__title {
-    font-size: calc(1.6rem * 1.15);      /* ≈ 1.84rem на мобильных */
+    font-size: 1.85rem !important;
   }
   .app-header__tagline {
-    font-size: calc(1.6rem * 1.15 * 0.70); /* ≈ 1.29rem */
+    font-size: 1.3rem !important;
     margin-left: 6px;
   }
 }
