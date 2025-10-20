@@ -256,6 +256,34 @@ export function renderSettings(container, { t, state, updateSettings, navigate }
     description: t("settings.description"),
     className: "settings-screen"
   });
+function parseTimeToMs(value) {
+  if (!value) return 0;
+  const v = value.toLowerCase();
+  if (v.includes("none") || v.includes("без")) return 0;
+  if (v.includes("30")) return 30000;
+  if (v.includes("1") && v.includes("мин")) return 60000;
+  if (v.includes("2") && v.includes("мин")) return 120000;
+  if (v.includes("сек")) {
+    const n = Number(v.replace(/[^0-9]/g, ""));
+    return isNaN(n) ? 0 : n * 1000;
+  }
+  const n = Number(value);
+  return isNaN(n) ? 0 : n;
+}
+
+function parseSpeedToMs(value) {
+  if (!value) return 0;
+  const v = value.toLowerCase().replace(",", ".");
+  if (v === "0" || v.includes("без")) return 0;
+  const n = parseFloat(v);
+  if (!isNaN(n)) return Math.round(n * 1000);
+  if (v.includes("0.1")) return 100;
+  if (v.includes("0.2")) return 200;
+  if (v.includes("0.5")) return 500;
+  if (v.includes("1")) return 1000;
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+}
 
   const indicator = createStepIndicator("settings", t);
   section.insertBefore(indicator, section.firstChild);
@@ -323,21 +351,40 @@ export function renderSettings(container, { t, state, updateSettings, navigate }
   );
   baseGrid.appendChild(examplesRow.row);
 
-  const timeRow = createFormRow(t("settings.timeLabel"));
-  timeRow.control.appendChild(
-    createSelect(t("settings.timeOptions"), settingsState.timeLimit, (value) => {
-      updateSettings({ timeLimit: value });
-    })
-  );
-  baseGrid.appendChild(timeRow.row);
+  // === Ограничение времени ===
+const timeRow = createFormRow(t("settings.timeLabel"));
+timeRow.control.appendChild(
+  createSelect(t("settings.timeOptions"), settingsState.timeLimit, (value) => {
+    const timeLimitEnabled = value !== "none";
+    const timePerExampleMs = parseTimeToMs(value);
+    updateSettings({
+      timeLimit: value,
+      timeLimitEnabled,
+      timePerExampleMs
+    });
+  })
+);
+baseGrid.appendChild(timeRow.row);
 
-  const speedRow = createFormRow(t("settings.speedLabel"));
-  speedRow.control.appendChild(
-    createSelect(t("settings.speedOptions"), settingsState.speed, (value) => {
-      updateSettings({ speed: value });
-    })
-  );
-  baseGrid.appendChild(speedRow.row);
+// === Скорость показа ===
+const speedRow = createFormRow(t("settings.speedLabel"));
+speedRow.control.appendChild(
+  createSelect(t("settings.speedOptions"), settingsState.speed, (value) => {
+    const showSpeedEnabled = value !== "0";
+    const showSpeedMs = parseSpeedToMs(value);
+    updateSettings({
+      speed: value,
+      showSpeedEnabled,
+      showSpeedMs,
+      showSpeedPauseAfterChainMs: 600,
+      bigDigitScale: 1.15,
+      lockInputDuringShow: true,
+      beepOnStep: false,
+      beepOnTimeout: true
+    });
+  })
+);
+baseGrid.appendChild(speedRow.row);
 
   form.appendChild(baseGrid);
 
