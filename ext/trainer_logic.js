@@ -73,7 +73,7 @@ export function mountTrainerUI(container, { t, state }) {
           </div>
         </div>
 
-        <!-- Прогресс-бар для таймера -->
+        <!-- Прогресс-бар для таймера ответа -->
         <div id="answer-timer">
           <div class="bar"></div>
         </div>
@@ -107,7 +107,9 @@ export function mountTrainerUI(container, { t, state }) {
       digitCount: abacusDigits
     });
 
-    const overlay = new BigStepOverlay(st.bigDigitScale ?? 1.15, "#EC8D00");
+    const overlayColor =
+      getComputedStyle(document.documentElement).getPropertyValue("--color-primary")?.trim() || "#EC8D00";
+    const overlay = new BigStepOverlay(st.bigDigitScale ?? 1.15, overlayColor);
 
     const shouldShowAbacus = st.mode === "abacus";
     if (shouldShowAbacus) {
@@ -122,7 +124,8 @@ export function mountTrainerUI(container, { t, state }) {
       completed: 0
     };
 
-    let isShowing = false;
+    let isShowing = false;     // идёт ли диктант
+    let showAbort = false;     // токен отмены диктанта
 
     // === Размер цифр ===
     function calculateFontSize(actions, maxDigits) {
@@ -134,11 +137,14 @@ export function mountTrainerUI(container, { t, state }) {
       return Math.max(minSize, Math.min(baseSize, fontSize));
     }
 
-    // === Генерация примера ===
+    // === Генерация/показ примера ===
     async function showNextExample() {
       try {
+        // Очистки на переходе
         stopAnswerTimer();
         overlay.clear();
+        showAbort = true; // гасим любой текущий диктант (если был)
+        isShowing = false;
 
         if (session.completed >= session.stats.total) {
           finishSession();
@@ -163,35 +169,43 @@ export function mountTrainerUI(container, { t, state }) {
 
         exampleView.render(session.currentExample.steps, displayMode);
 
-        const areaExample = document.getElementById("area-example");
+        // Адаптация размеров
         const actionsLen = session.currentExample.steps.length;
         let maxDigits = 1;
         for (const step of session.currentExample.steps) {
           const num = parseInt(String(step).replace(/[^\d-]/g, ""), 10);
           if (!isNaN(num)) maxDigits = Math.max(maxDigits, Math.abs(num).toString().length);
         }
-
         const fontSize = calculateFontSize(actionsLen, maxDigits);
         document.documentElement.style.setProperty("--example-font-size", `${fontSize}px`);
 
+        // Подготовка поля ввода
         const input = document.getElementById("answer-input");
         input.value = "";
-        input.disabled = true;
 
         // === ПОКАДРОВЫЙ ПОКАЗ ===
+        const lockDuringShow = st.lockInputDuringShow !== false; // по умолчанию true
+        input.disabled = lockDuringShow;
         if (st.showSpeedEnabled && st.showSpeedMs > 0) {
           isShowing = true;
-          await playSequential(session.currentExample.steps, st.showSpeedMs);
+          showAbort = false;
+          await playSequential(session.currentExample.steps, st.showSpeedMs, {
+            beepOnStep: !!st.beepOnStep
+          });
+          if (showAbort) return; // если прервано досрочным ответом
           await delay(st.showSpeedPauseAfterChainMs ?? 600);
           isShowing = false;
-          input.disabled = false;
-          input.focus();
+          if (lockDuringShow) {
+            input.disabled = false;
+            input.focus();
+          }
         } else {
+          // без диктанта
           input.disabled = false;
           input.focus();
         }
 
-        // === ЗАПУСК ТАЙМЕРА ===
+        // === ЗАПУСК ТАЙМЕРА ОТВЕТА ===
         if (st.timeLimitEnabled && st.timePerExampleMs > 0) {
           startAnswerTimer(st.timePerExampleMs, {
             onExpire: handleTimeExpired,
@@ -208,12 +222,21 @@ export function mountTrainerUI(container, { t, state }) {
 
     // === Проверка ответа ===
     function checkAnswer() {
-      if (isShowing) return;
+      // если идёт диктант и ввод заблокирован — игнорируем
+      if (isShowing && (st.lockInputDuringShow !== false)) return;
+
       const input = document.getElementById("answer-input");
       const userAnswer = parseInt(input.value, 10);
       if (isNaN(userAnswer)) {
         alert("Пожалуйста, введи число");
         return;
+      }
+
+      // если ответили во время диктанта при разрешённом вводе — прерываем показ
+      if (isShowing && (st.lockInputDuringShow === false)) {
+        showAbort = true;
+        isShowing = false;
+        overlay.clear();
       }
 
       stopAnswerTimer();
@@ -232,10 +255,10 @@ export function mountTrainerUI(container, { t, state }) {
     function handleTimeExpired() {
       const correct = session.currentExample?.answer;
       console.warn("⏳ Время вышло! Правильный ответ:", correct);
+      if (st.beepOnTimeout) playSound("wrong"); // или отдельный звук timeout, если есть в ассетах
       session.stats.incorrect++;
       session.completed++;
       updateStats();
-      playSound("wrong");
       setTimeout(() => showNextExample(), 800);
     }
 
@@ -256,6 +279,8 @@ export function mountTrainerUI(container, { t, state }) {
 
     function finishSession() {
       stopAnswerTimer();
+      showAbort = true;
+      isShowing = false;
       overlay.clear();
       abacusWrapper.classList.remove("visible");
       if (window.finishTraining) {
@@ -267,10 +292,12 @@ export function mountTrainerUI(container, { t, state }) {
     }
 
     // === Покадровый показ шагов ===
-    async function playSequential(steps, intervalMs) {
+    async function playSequential(steps, intervalMs, { beepOnStep = false } = {}) {
       try {
         for (const s of steps) {
+          if (showAbort) break;
           overlay.show(formatStep(s));
+          if (beepOnStep) playSound("tick");
           await delay(intervalMs);
           overlay.hide();
           await delay(40);
@@ -311,9 +338,12 @@ export function mountTrainerUI(container, { t, state }) {
     showNextExample();
     console.log(`✅ Тренажёр запущен (${abacusDigits} стоек, ${digits}-значные числа)`);
 
+    // Возврат функции очистки при размонтировании
     return () => {
       const wrapper = document.getElementById("abacus-wrapper");
       if (wrapper) wrapper.remove();
+      showAbort = true;
+      isShowing = false;
       overlay.clear();
       stopAnswerTimer();
     };
