@@ -73,3 +73,9 @@
     "cta": "Запустить новое задание"
   }
 }
+{
+  "timer.out": "Время вышло!",
+  "timer.left": "Осталось: {seconds} с",
+  "answer.correct": "Правильный ответ: {value}",
+  "answer.enterNumber": "Пожалуйста, введи число"
+}
