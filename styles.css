@@ -840,3 +840,29 @@ body.game-screen .screen__body {
     padding: 20px 16px !important;
   }
 }
+/* ========================================
+   ОВЕРЛЕЙ ПОКАЗА ШАГОВ (BigStepOverlay)
+   ======================================== */
+
+#big-step-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Baloo 2", cursive;
+  font-size: clamp(48px, 12vw, 180px);
+  font-weight: 800;
+  color: var(--color-primary);
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.18);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#big-step-overlay.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.05);
+}
