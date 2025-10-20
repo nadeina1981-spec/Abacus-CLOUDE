@@ -256,34 +256,6 @@ export function renderSettings(container, { t, state, updateSettings, navigate }
     description: t("settings.description"),
     className: "settings-screen"
   });
-function parseTimeToMs(value) {
-  if (!value) return 0;
-  const v = value.toLowerCase();
-  if (v.includes("none") || v.includes("без")) return 0;
-  if (v.includes("30")) return 30000;
-  if (v.includes("1") && v.includes("мин")) return 60000;
-  if (v.includes("2") && v.includes("мин")) return 120000;
-  if (v.includes("сек")) {
-    const n = Number(v.replace(/[^0-9]/g, ""));
-    return isNaN(n) ? 0 : n * 1000;
-  }
-  const n = Number(value);
-  return isNaN(n) ? 0 : n;
-}
-
-function parseSpeedToMs(value) {
-  if (!value) return 0;
-  const v = value.toLowerCase().replace(",", ".");
-  if (v === "0" || v.includes("без")) return 0;
-  const n = parseFloat(v);
-  if (!isNaN(n)) return Math.round(n * 1000);
-  if (v.includes("0.1")) return 100;
-  if (v.includes("0.2")) return 200;
-  if (v.includes("0.5")) return 500;
-  if (v.includes("1")) return 1000;
-  const num = Number(value);
-  return isNaN(num) ? 0 : num;
-}
 
   const indicator = createStepIndicator("settings", t);
   section.insertBefore(indicator, section.firstChild);
@@ -470,4 +442,32 @@ baseGrid.appendChild(speedRow.row);
 
   body.appendChild(form);
   container.appendChild(section);
+}
+function parseTimeToMs(value) {
+  if (!value) return 0;
+  const v = value.toLowerCase();
+  if (v.includes("none") || v.includes("без")) return 0;
+  if (v.includes("30")) return 30000;
+  if (v.includes("1") && v.includes("мин")) return 60000;
+  if (v.includes("2") && v.includes("мин")) return 120000;
+  if (v.includes("сек")) {
+    const n = Number(v.replace(/[^0-9]/g, ""));
+    return isNaN(n) ? 0 : n * 1000;
+  }
+  const n = Number(value);
+  return isNaN(n) ? 0 : n;
+}
+
+function parseSpeedToMs(value) {
+  if (!value) return 0;
+  const v = value.toLowerCase().replace(",", ".");
+  if (v === "0" || v.includes("без")) return 0;
+  const n = parseFloat(v);
+  if (!isNaN(n)) return Math.round(n * 1000);
+  if (v.includes("0.1")) return 100;
+  if (v.includes("0.2")) return 200;
+  if (v.includes("0.5")) return 500;
+  if (v.includes("1")) return 1000;
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
 }
