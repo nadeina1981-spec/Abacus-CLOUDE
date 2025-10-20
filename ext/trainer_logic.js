@@ -1,8 +1,9 @@
-// ext/trainer_logic.js - Логика тренажёра с адаптивным размером цифр
+// ext/trainer_logic.js — Логика тренажёра с абакусом, таймером и покадровым показом
 import { ExampleView } from "./components/ExampleView.js";
 import { Abacus } from "./components/AbacusNew.js";
 import { generateExample } from "./core/generator.js";
-import { startTimer, stopTimer } from "../js/utils/timer.js";
+import { startAnswerTimer, stopAnswerTimer } from "../js/utils/timer.js";
+import { BigStepOverlay } from "../ui/components/BigStepOverlay.js";
 import { playSound } from "../js/utils/sound.js";
 
 /**
@@ -12,10 +13,9 @@ import { playSound } from "../js/utils/sound.js";
  */
 export function mountTrainerUI(container, { t, state }) {
   try {
-    console.log("🎮 Монтируем UI тренажёра с новым SVG абакусом...");
+    console.log("🎮 Монтируем UI тренажёра (Abacus + Таймер + Диктант)...");
     console.log("📋 Настройки:", state?.settings);
 
-    // ── Безопасно достаём настройки
     const st = state?.settings ?? {};
     const actionsCfg = st.actions ?? {};
     const examplesCfg = st.examples ?? {};
@@ -73,14 +73,11 @@ export function mountTrainerUI(container, { t, state }) {
           </div>
         </div>
 
-        <div class="timer-capsule">
-          <svg class="timer-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M6 2l3 3M18 2l-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span id="timer">00:00</span>
+        <!-- Прогресс-бар для таймера -->
+        <div id="answer-timer">
+          <div class="bar"></div>
         </div>
+        <div id="answerTimerText" class="answer-timer__text"></div>
 
         <div class="panel-card panel-card--compact">
           <button class="btn btn--secondary btn--fullwidth" id="btn-show-abacus">🧮 Показать абакус</button>
@@ -89,12 +86,9 @@ export function mountTrainerUI(container, { t, state }) {
     `;
     container.appendChild(layout);
 
-    // === Плавающий абакус ===
+    // === Абакус ===
     const oldAbacus = document.getElementById("abacus-wrapper");
-    if (oldAbacus) {
-      oldAbacus.remove();
-      console.log("🗑️ Старый абакус удален");
-    }
+    if (oldAbacus) oldAbacus.remove();
 
     const abacusWrapper = document.createElement("div");
     abacusWrapper.className = "abacus-wrapper";
@@ -109,7 +103,11 @@ export function mountTrainerUI(container, { t, state }) {
     document.body.appendChild(abacusWrapper);
 
     const exampleView = new ExampleView(document.getElementById("area-example"));
-    const abacus = new Abacus(document.getElementById("floating-abacus-container"), { digitCount: abacusDigits });
+    const abacus = new Abacus(document.getElementById("floating-abacus-container"), {
+      digitCount: abacusDigits
+    });
+
+    const overlay = new BigStepOverlay(st.bigDigitScale ?? 1.15, "#EC8D00");
 
     const shouldShowAbacus = st.mode === "abacus";
     if (shouldShowAbacus) {
@@ -117,27 +115,31 @@ export function mountTrainerUI(container, { t, state }) {
       document.getElementById("btn-show-abacus").textContent = "🧮 Скрыть абакус";
     }
 
-    // === Состояние сессии ===
+    // === Состояние ===
     const session = {
       currentExample: null,
       stats: { correct: 0, incorrect: 0, total: getExampleCount(examplesCfg) },
       completed: 0
     };
 
-    // Подсчёт адаптивного шрифта
+    let isShowing = false;
+
+    // === Размер цифр ===
     function calculateFontSize(actions, maxDigits) {
       const baseSize = 120;
       const minSize = 35;
       const actionPenalty = 1.8;
       const digitPenalty = 3;
       let fontSize = baseSize - (actions * actionPenalty) - (maxDigits * digitPenalty);
-      fontSize = Math.max(minSize, Math.min(baseSize, fontSize));
-      return fontSize;
+      return Math.max(minSize, Math.min(baseSize, fontSize));
     }
 
-    // === Генерация нового примера ===
-    function showNextExample() {
+    // === Генерация примера ===
+    async function showNextExample() {
       try {
+        stopAnswerTimer();
+        overlay.clear();
+
         if (session.completed >= session.stats.total) {
           finishSession();
           return;
@@ -156,40 +158,49 @@ export function mountTrainerUI(container, { t, state }) {
           }
         });
 
-        if (!session.currentExample || !Array.isArray(session.currentExample.steps)) {
-          throw new Error("Пустой пример (generateExample вернул некорректные данные)");
-        }
+        if (!session.currentExample || !Array.isArray(session.currentExample.steps))
+          throw new Error("Пустой пример");
 
         exampleView.render(session.currentExample.steps, displayMode);
 
-        // === Адаптация размера цифр ===
         const areaExample = document.getElementById("area-example");
-        const actionsLen = session.currentExample.steps?.length || 1;
-
+        const actionsLen = session.currentExample.steps.length;
         let maxDigits = 1;
         for (const step of session.currentExample.steps) {
           const num = parseInt(String(step).replace(/[^\d-]/g, ""), 10);
-          if (!isNaN(num)) {
-            maxDigits = Math.max(maxDigits, Math.abs(num).toString().length);
-          }
+          if (!isNaN(num)) maxDigits = Math.max(maxDigits, Math.abs(num).toString().length);
         }
 
         const fontSize = calculateFontSize(actionsLen, maxDigits);
-        const root = document.documentElement;
-        root.style.setProperty("--example-actions", actionsLen);
-        root.style.setProperty("--example-digits", maxDigits);
-        root.style.setProperty("--example-font-size", `${fontSize}px`);
+        document.documentElement.style.setProperty("--example-font-size", `${fontSize}px`);
 
-        areaExample.setAttribute("data-actions", actionsLen);
-        areaExample.setAttribute("data-digits", maxDigits);
-
-        abacus.reset();
         const input = document.getElementById("answer-input");
         input.value = "";
-        input.focus();
-        startTimer("timer");
+        input.disabled = true;
 
-        console.log("📝 Новый пример. Ответ:", session.currentExample.answer);
+        // === ПОКАДРОВЫЙ ПОКАЗ ===
+        if (st.showSpeedEnabled && st.showSpeedMs > 0) {
+          isShowing = true;
+          await playSequential(session.currentExample.steps, st.showSpeedMs);
+          await delay(st.showSpeedPauseAfterChainMs ?? 600);
+          isShowing = false;
+          input.disabled = false;
+          input.focus();
+        } else {
+          input.disabled = false;
+          input.focus();
+        }
+
+        // === ЗАПУСК ТАЙМЕРА ===
+        if (st.timeLimitEnabled && st.timePerExampleMs > 0) {
+          startAnswerTimer(st.timePerExampleMs, {
+            onExpire: handleTimeExpired,
+            textElementId: "answerTimerText",
+            barSelector: "#answer-timer .bar"
+          });
+        }
+
+        console.log("📝 Новый пример:", session.currentExample.steps, "Ответ:", session.currentExample.answer);
       } catch (e) {
         showFatalError(e);
       }
@@ -197,13 +208,15 @@ export function mountTrainerUI(container, { t, state }) {
 
     // === Проверка ответа ===
     function checkAnswer() {
+      if (isShowing) return;
       const input = document.getElementById("answer-input");
       const userAnswer = parseInt(input.value, 10);
       if (isNaN(userAnswer)) {
         alert("Пожалуйста, введи число");
         return;
       }
-      stopTimer();
+
+      stopAnswerTimer();
 
       const isCorrect = userAnswer === session.currentExample.answer;
       if (isCorrect) session.stats.correct++;
@@ -213,6 +226,17 @@ export function mountTrainerUI(container, { t, state }) {
       playSound(isCorrect ? "correct" : "wrong");
 
       setTimeout(() => showNextExample(), 500);
+    }
+
+    // === Обработка тайм-аута ===
+    function handleTimeExpired() {
+      const correct = session.currentExample?.answer;
+      console.warn("⏳ Время вышло! Правильный ответ:", correct);
+      session.stats.incorrect++;
+      session.completed++;
+      updateStats();
+      playSound("wrong");
+      setTimeout(() => showNextExample(), 800);
     }
 
     // === Обновление статистики ===
@@ -231,6 +255,8 @@ export function mountTrainerUI(container, { t, state }) {
     }
 
     function finishSession() {
+      stopAnswerTimer();
+      overlay.clear();
       abacusWrapper.classList.remove("visible");
       if (window.finishTraining) {
         window.finishTraining({
@@ -238,6 +264,30 @@ export function mountTrainerUI(container, { t, state }) {
           total: session.stats.total
         });
       }
+    }
+
+    // === Покадровый показ шагов ===
+    async function playSequential(steps, intervalMs) {
+      try {
+        for (const s of steps) {
+          overlay.show(formatStep(s));
+          await delay(intervalMs);
+          overlay.hide();
+          await delay(40);
+        }
+      } finally {
+        overlay.clear();
+      }
+    }
+
+    function formatStep(step) {
+      const n = Number(step);
+      if (Number.isNaN(n)) return String(step);
+      return n >= 0 ? `+${n}` : `${n}`;
+    }
+
+    function delay(ms) {
+      return new Promise(r => setTimeout(r, ms));
     }
 
     // === События ===
@@ -261,10 +311,11 @@ export function mountTrainerUI(container, { t, state }) {
     showNextExample();
     console.log(`✅ Тренажёр запущен (${abacusDigits} стоек, ${digits}-значные числа)`);
 
-    // Возвращаем функцию очистки
     return () => {
       const wrapper = document.getElementById("abacus-wrapper");
       if (wrapper) wrapper.remove();
+      overlay.clear();
+      stopAnswerTimer();
     };
 
   } catch (err) {
@@ -272,7 +323,7 @@ export function mountTrainerUI(container, { t, state }) {
   }
 }
 
-/** Показать фатальную ошибку на экране, если тренажёр не смог стартовать */
+/** Показать фатальную ошибку */
 function showFatalError(err) {
   console.error("Ошибка загрузки тренажёра:", err);
   const host = document.querySelector(".screen__body") || document.body;
@@ -284,7 +335,7 @@ function showFatalError(err) {
   );
 }
 
-/** Получить количество примеров из настроек */
+/** Получить количество примеров */
 function getExampleCount(examplesCfg) {
   if (!examplesCfg) return 10;
   return examplesCfg.infinite ? 10 : (examplesCfg.count ?? 10);
