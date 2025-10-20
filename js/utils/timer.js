@@ -2,35 +2,38 @@
  * timer.js — Таймеры для тренажёра
  *
  * 1) Секундомер (легаси UI): mm:ss в элементе по ID
- *    - startTimer(elementId?: string)        // запускает секундомер ↑
- *    - stopTimer(): number                   // останавливает, возвращает секунды
- *    - getElapsedTime(): number              // прошедшие секунды без остановки
+ *    - startTimer(elementId?: string)
+ *    - stopTimer(): number
+ *    - getElapsedTime(): number
  *    - isRunning(): boolean
  *    - formatTime(totalSeconds): string      // "mm:ss"
  *
- * 2) Пер-пример обратный отсчёт (новый по ТЗ): миллисекунды, колбэки, прогресс
- *    - startAnswerTimer(durationMs: number, options?: {
+ * 2) Пер-пример обратный отсчёт (новый по ТЗ)
+ *    - startAnswerTimer(limit: number|string, options?: {
  *        onTick?: (remainingMs:number)=>void,
  *        onExpire?: ()=>void,
- *        textElementId?: string,            // куда писать "mm:ss" (опционально)
- *        barSelector?: string               // селектор прогресс-бара '.bar' (опционально)
+ *        textElementId?: string,
+ *        barSelector?: string
  *      })
+ *      // limit может быть:
+ *      //   1            → 1 минута
+ *      //   "1 минута"   → 1 минута
+ *      //   "1:30"       → 1 минута 30 секунд
+ *      //   "30 сек"     → 30 секунд
+ *      //   60000        → 60000 мс (распознаётся как мс)
  *    - stopAnswerTimer()
  *    - getRemainingMs(): number
  *    - isAnswerTimerRunning(): boolean
  */
 
-// =========================
-// 1) СЕКУНДОМЕР (как было)
-// =========================
+/* =========================
+ * 1) СЕКУНДОМЕР (как было)
+ * ========================= */
 let timerInterval = null;
 let seconds = 0;
 let displayElementId = null;
 
-/**
- * Запуск секундомера (mm:ss)
- * @param {string} elementId - ID элемента для отображения (например, 'timer')
- */
+/** Запуск секундомера (mm:ss) */
 export function startTimer(elementId = 'timer') {
   stopTimer();
   seconds = 0;
@@ -40,23 +43,18 @@ export function startTimer(elementId = 'timer') {
     seconds++;
     updateStopwatchDisplay();
   }, 1000);
-  // console.log('⏱️ Секундомер запущен');
 }
 
-/**
- * Остановка секундомера
- * @returns {number} Прошедшее время в секундах
- */
+/** Остановка секундомера, возвращает прошедшие секунды */
 export function stopTimer() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
-    // console.log(`⏱️ Секундомер остановлен: ${seconds} сек`);
   }
   return seconds;
 }
 
-/** Получить текущее время секундомера в секундах */
+/** Текущее значение секундомера в секундах */
 export function getElapsedTime() {
   return seconds;
 }
@@ -74,28 +72,75 @@ function updateStopwatchDisplay() {
   el.textContent = formatTime(seconds);
 }
 
-/** Форматирование времени в читаемый вид "мм:сс" */
+/** Формат "мм:сс" */
 export function formatTime(totalSeconds) {
   const mm = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
   const ss = (totalSeconds % 60).toString().padStart(2, '0');
   return `${mm}:${ss}`;
 }
 
-// ======================================
-// 2) ПЕР- ПРИМЕР ОБРАТНЫЙ ОТСЧЁТ (НОВЫЙ)
-// ======================================
+/* ======================================
+ * 2) ПЕР- ПРИМЕР ОБРАТНЫЙ ОТСЧЁТ (НОВЫЙ)
+ * ====================================== */
 let answerTimerId = null;       // setInterval id
 let answerTimerEndAt = 0;       // timestamp ms
 let answerTimerTotal = 0;       // duration ms
 let answerTimerOpts = null;     // { onTick, onExpire, textElementId, barSelector }
 
 /**
- * Запуск обратного отсчёта с точностью к Date.now()
- * @param {number} durationMs — длительность в миллисекундах (>0)
+ * Универсальный парсер длительности → миллисекунды
+ * Поддерживает: "MM:SS", "1 мин", "30 сек", "90s", чистые числа (минуты),
+ * а также числовые миллисекунды (распознаются автоматически).
+ */
+function toDurationMs(limit) {
+  // 1) Формат "MM:SS"
+  if (typeof limit === 'string' && limit.includes(':')) {
+    const [mRaw, sRaw] = limit.split(':');
+    const m = parseInt(String(mRaw).trim(), 10) || 0;
+    const s = parseInt(String(sRaw).trim(), 10) || 0;
+    return (m * 60 + s) * 1000;
+  }
+
+  // Нормализуем строку для распознавания единиц
+  const str = String(limit).trim().toLowerCase();
+
+  // 2) Секунды в тексте
+  if (/[0-9]/.test(str) && /(сек|sec|s)\b/.test(str)) {
+    const n = parseFloat(str.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+    return Math.round(n * 1000);
+  }
+
+  // 3) Минуты в тексте
+  if (/[0-9]/.test(str) && /(мин|хв|min|m)\b/.test(str)) {
+    const n = parseFloat(str.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+    return Math.round(n * 60 * 1000);
+  }
+
+  // 4) Чистое число
+  if (!isNaN(Number(limit))) {
+    const num = Number(limit);
+
+    // эвристика: большие числа считаем миллисекундами
+    // (например, 60000 → уже мс)
+    if (num >= 10000) return Math.round(num);
+
+    // иначе трактуем как минуты (требование задачи)
+    return Math.round(num * 60 * 1000);
+  }
+
+  // Фолбэк
+  return 0;
+}
+
+/**
+ * Запуск обратного отсчёта. Принимает минуты/секунды/мм:сс/мс.
+ * @param {number|string} limit
  * @param {{onTick?:Function,onExpire?:Function,textElementId?:string,barSelector?:string}} [options]
  */
-export function startAnswerTimer(durationMs, options = {}) {
-  stopAnswerTimer(); // гашим, если был
+export function startAnswerTimer(limit, options = {}) {
+  stopAnswerTimer(); // гасим, если был
+
+  const durationMs = toDurationMs(limit);
   if (!durationMs || durationMs <= 0) return;
 
   answerTimerTotal = durationMs;
@@ -134,16 +179,16 @@ function tickAnswerTimer(firstPaint = false) {
   const now = Date.now();
   let remaining = Math.max(0, answerTimerEndAt - now);
 
-  // Рисуем текст "mm:ss" в textElementId (если задан)
+  // Текст "mm:ss"
   if (answerTimerOpts?.textElementId) {
     const el = document.getElementById(answerTimerOpts.textElementId);
     if (el) {
-      const secs = Math.ceil(remaining / 1000); // округляем вверх, чтобы не мигало "00:00" заранее
+      const secs = Math.ceil(remaining / 1000); // чтобы 00:00 не появлялось заранее
       el.textContent = formatTime(secs);
     }
   }
 
-  // Рисуем прогресс (если задан barSelector, например "#answer-timer .bar")
+  // Прогресс-бар
   if (answerTimerOpts?.barSelector) {
     const barEl = document.querySelector(answerTimerOpts.barSelector);
     if (barEl && answerTimerTotal > 0) {
