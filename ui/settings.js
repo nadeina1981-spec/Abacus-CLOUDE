@@ -444,30 +444,50 @@ baseGrid.appendChild(speedRow.row);
   container.appendChild(section);
 }
 function parseTimeToMs(value) {
-  if (!value) return 0;
-  const v = value.toLowerCase();
+  if (value == null) return 0;
+  // Если в value уже миллисекунды (число или строка-число) — вернуть как есть
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (/^\d+$/.test(String(value))) return Number(value); // "60000" -> 60000
+
+  const v = String(value).trim().toLowerCase().replace(",", "."); // "1,5 мин" -> "1.5 мин"
   if (v.includes("none") || v.includes("без")) return 0;
-  if (v.includes("30")) return 30000;
-  if (v.includes("1") && v.includes("мин")) return 60000;
-  if (v.includes("2") && v.includes("мин")) return 120000;
-  if (v.includes("сек")) {
-    const n = Number(v.replace(/[^0-9]/g, ""));
-    return isNaN(n) ? 0 : n * 1000;
-  }
-  const n = Number(value);
-  return isNaN(n) ? 0 : n;
+
+  // Выделяем число (целое или дробное)
+  const num = parseFloat(v.match(/[\d.]+/)?.[0] ?? "0"); // "1.5", "90"
+  if (!isFinite(num) || num <= 0) return 0;
+
+  // Определяем единицы
+  const isMin = /(min|мин)/.test(v);           // "1 мин", "2 min"
+  const isSec = /(sec|сек)/.test(v);           // "30 сек", "90 sec"
+
+  if (isMin) return Math.round(num * 60_000);  // минуты -> мс
+  if (isSec || /\d/.test(v)) return Math.round(num * 1_000); // секунды -> мс (по умолчанию секунды)
+  return 0;
 }
 
 function parseSpeedToMs(value) {
-  if (!value) return 0;
-  const v = value.toLowerCase().replace(",", ".");
+  if (value == null) return 0;
+  // Если уже миллисекунды
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (/^\d+$/.test(String(value))) {
+    const n = Number(value);
+    // Если явно большой — считаем, что это мс; если маленький — секунды
+    return n > 50 ? n : n * 1000;
+  }
+
+  const v = String(value).trim().toLowerCase().replace(",", ".");
   if (v === "0" || v.includes("без")) return 0;
-  const n = parseFloat(v);
-  if (!isNaN(n)) return Math.round(n * 1000);
-  if (v.includes("0.1")) return 100;
-  if (v.includes("0.2")) return 200;
-  if (v.includes("0.5")) return 500;
-  if (v.includes("1")) return 1000;
-  const num = Number(value);
-  return isNaN(num) ? 0 : num;
+
+  // число (секунды как десятичное), например "0.1 сек", "1.25s"
+  const num = parseFloat(v.match(/[\d.]+/)?.[0] ?? "0");
+  if (!isFinite(num) || num <= 0) return 0;
+
+  // Если явно указаны миллисекунды (ms)
+  if (/ms/.test(v)) return Math.round(num);
+
+  // По ключевым словам secs/сек/seconds — трактуем как секунды
+  if (/(sec|сек|s(?![a-z]))/.test(v)) return Math.round(num * 1000);
+
+  // По умолчанию — секунды
+  return Math.round(num * 1000);
 }
