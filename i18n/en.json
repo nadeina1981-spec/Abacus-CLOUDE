@@ -73,3 +73,9 @@
     "cta": "Start new setup"
   }
 }
+{
+  "timer.out": "Time is up!",
+  "timer.left": "Left: {seconds}s",
+  "answer.correct": "Correct answer: {value}",
+  "answer.enterNumber": "Please enter a number"
+}
