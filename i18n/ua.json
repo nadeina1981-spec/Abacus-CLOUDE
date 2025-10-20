@@ -73,3 +73,9 @@
     "cta": "Почати нове налаштування"
   }
 }
+{
+  "timer.out": "Час вийшов!",
+  "timer.left": "Залишилось: {seconds} с",
+  "answer.correct": "Правильна відповідь: {value}",
+  "answer.enterNumber": "Будь ласка, введи число"
+}
