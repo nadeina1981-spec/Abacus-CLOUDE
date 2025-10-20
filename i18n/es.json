@@ -71,7 +71,7 @@
     "success": "Correctos",
     "mistakes": "Errores",
     "cta": "Iniciar nueva configuración"
-  }
+  },
   "timer": {
   "out": "¡Tiempo agotado!",
   "left": "Quedan {seconds} segundos",
