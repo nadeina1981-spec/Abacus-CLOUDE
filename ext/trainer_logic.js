@@ -355,12 +355,13 @@ export function mountTrainerUI(container, { t, state }) {
 
 /** Показать фатальную ошибку */
 function showFatalError(err) {
+  const msg = err?.stack || err?.message || String(err);
   console.error("Ошибка загрузки тренажёра:", err);
   const host = document.querySelector(".screen__body") || document.body;
   host.insertAdjacentHTML(
     "afterbegin",
-    `<div style="color:#d93025;padding:16px">
-      <b>Не удалось загрузить тренажёр.</b><br/>${(err && err.message) ? err.message : String(err)}
+    `<div style="color:#d93025;padding:16px;white-space:pre-wrap">
+      <b>Не удалось загрузить тренажёр.</b><br/>${msg}
     </div>`
   );
 }
@@ -370,3 +371,4 @@ function getExampleCount(examplesCfg) {
   if (!examplesCfg) return 10;
   return examplesCfg.infinite ? 10 : (examplesCfg.count ?? 10);
 }
+
