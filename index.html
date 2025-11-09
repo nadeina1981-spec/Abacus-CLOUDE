@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Лео в космосе</title>
+  <!-- Версию можно менять тут, чтобы пробить кэш -->
+  <meta name="build" content="2025-11-09-1">
+
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -16,44 +19,19 @@
       background: #EC8D00;
       min-height: 100vh;
     }
-    
-    /* Одноразовая пульсация при каждом новом ходе */
     @keyframes pulse {
-      0% {
-        transform: scale(1);
-        opacity: 1;
-      }
-      50% {
-        transform: scale(1.1);
-        opacity: 0.9;
-      }
-      100% {
-        transform: scale(1);
-        opacity: 1;
-      }
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 1; }
     }
-    
-    /* Пульсация яркости для линий телепортации */
     @keyframes teleportPulse {
-      0%, 100% {
-        opacity: 0.5;
-      }
-      50% {
-        opacity: 1;
-      }
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
     }
-    
-    /* Бегущая анимация по штрих-пунктиру */
     @keyframes dashMove {
-      0% {
-        stroke-dashoffset: 0;
-      }
-      100% {
-        stroke-dashoffset: 40;
-      }
+      0% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: 40; }
     }
-    
-    /* Класс для анимированных линий телепортации */
     .teleport-line {
       animation: teleportPulse 1.5s infinite ease-in-out, dashMove 2s linear infinite;
     }
@@ -61,15 +39,20 @@
 </head>
 <body>
   <div id="root"></div>
-  
+
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
     const LeoSpaceNavigator = () => {
-      // ВЕРСИЯ для кэш-бастинга звуковых файлов
-      // Увеличивай эту цифру каждый раз когда меняешь звуковые файлы!
-      const SOUND_VERSION = '2';
-      
+      // === Универсальная версия билда для кэш-бастинга ===
+      const BUILD_VERSION =
+        new URLSearchParams(location.search).get('v') ||
+        document.querySelector('meta[name="build"]')?.content ||
+        '1';
+
+      const withV = (path) => `${path}${path.includes('?') ? '&' : '?'}v=${BUILD_VERSION}`;
+      const SOUND_VERSION = BUILD_VERSION; // оставим, если где-то понадобится отдельно
+
       const [screen, setScreen] = useState('settings');
       const [settings, setSettings] = useState({
         gridSize: 5,
@@ -80,12 +63,12 @@
         startPosition: 'center',
         commandSpeed: 1.8 // в секундах
       });
-      
+
       const [countdown, setCountdown] = useState(3);
       const [route, setRoute] = useState([]);
       const [currentStep, setCurrentStep] = useState(0);
       const [leoPosition, setLeoPosition] = useState({ x: 0, y: 0 });
-      const [routeStartPosition, setRouteStartPosition] = useState({ x: 0, y: 0 }); // Запоминаем стартовую позицию маршрута
+      const [routeStartPosition, setRouteStartPosition] = useState({ x: 0, y: 0 });
       const [playerGuess, setPlayerGuess] = useState(null);
       const [isCorrect, setIsCorrect] = useState(null);
       const [showingRoute, setShowingRoute] = useState(false);
@@ -98,25 +81,25 @@
       const [cometGuessMode, setCometGuessMode] = useState(false);
       const [cometGuess, setCometGuess] = useState(null);
       const [showComets, setShowComets] = useState(true);
-      
+
       const routeIntervalRef = useRef(null);
       const audioCache = useRef({});
 
-      // НАСТРОЙКА ПУТЕЙ К ФАЙЛАМ
-      // Измените форматы по необходимости: .png, .jpg, .gif, .webp
+      // === Картинки с версионированием ===
       const IMAGES = {
-        leo: './images/leo.png',
-        logo: './images/logo.png',
-        comet: './images/comet.png',
-        background: './images/background.jpg',
+        leo: withV('./images/leo.png'),
+        logo: withV('./images/logo.png'),
+        comet: withV('./images/comet.png'),
+        background: withV('./images/background.jpg'),
         portals: [
-          './images/moon.gif',
-          './images/sun.gif',
-          './images/pluton.gif',
-          './images/jupiter.gif'
+          withV('./images/moon.gif'),
+          withV('./images/sun.gif'),
+          withV('./images/pluton.gif'),
+          withV('./images/jupiter.gif')
         ]
       };
 
+      // === Тексты ===
       const translations = {
         ua: {
           title: 'Лео в космосі',
@@ -270,31 +253,41 @@
 
       const t = translations[language];
 
-      const playSound = async (soundName) => {
-        // Добавляем версию к URL чтобы браузер не использовал старый кэш
-        const soundPath = `./sounds/${language}/${soundName}.mp3?v=${SOUND_VERSION}`;
-        
+      // === Воспроизведение звуков ===
+      // Языковые звуки: up/down/left/right/start — из ./sounds/{lang}/
+      const playLangSound = async (soundName) => {
+        const soundPath = withV(`./sounds/${language}/${soundName}.mp3`);
         try {
           if (!audioCache.current[soundPath]) {
             const audio = new Audio(soundPath);
             audio.preload = 'auto';
             audioCache.current[soundPath] = audio;
           }
-          
           const audio = audioCache.current[soundPath];
           audio.currentTime = 0;
-          
-          // Используем Promise для более надежного воспроизведения
           const playPromise = audio.play();
           if (playPromise !== undefined) {
-            playPromise.catch(error => {
-              console.log('Ошибка воспроизведения:', error);
-              speak(t[soundName] || soundName);
-            });
+            playPromise.catch(() => speak(t[soundName] || soundName));
           }
-        } catch (error) {
-          console.log('Ошибка загрузки звука:', error);
+        } catch {
           speak(t[soundName] || soundName);
+        }
+      };
+
+      // Общий клик (один для всех языков): ./sounds/click.mp3
+      const playClick = async () => {
+        const soundPath = withV(`./sounds/click.mp3`);
+        try {
+          if (!audioCache.current[soundPath]) {
+            const audio = new Audio(soundPath);
+            audio.preload = 'auto';
+            audioCache.current[soundPath] = audio;
+          }
+          const audio = audioCache.current[soundPath];
+          audio.currentTime = 0;
+          await audio.play();
+        } catch (e) {
+          // клик без озвучки-замены, просто игнор
         }
       };
 
@@ -309,16 +302,17 @@
         }
       };
 
+      // === Генерация маршрута ===
       const generateRoute = () => {
         const { gridSize, steps, startPosition, portals, comets } = settings;
         const center = Math.floor(gridSize / 2);
-        const start = startPosition === 'center' 
+        const start = startPosition === 'center'
           ? { x: center, y: center }
           : { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
-        
+
         setLeoPosition(start);
-        setRouteStartPosition(start); // Запоминаем стартовую позицию
-        
+        setRouteStartPosition(start);
+
         const newPortals = [];
         for (let i = 0; i < portals; i++) {
           let portal1, portal2;
@@ -329,7 +323,7 @@
             (portal1.x === start.x && portal1.y === start.y) ||
             (portal2.x === start.x && portal2.y === start.y) ||
             (portal1.x === portal2.x && portal1.y === portal2.y) ||
-            newPortals.some(p => 
+            newPortals.some(p =>
               (p.pos1.x === portal1.x && p.pos1.y === portal1.y) ||
               (p.pos2.x === portal1.x && p.pos2.y === portal1.y) ||
               (p.pos1.x === portal2.x && p.pos1.y === portal2.y) ||
@@ -339,7 +333,7 @@
           newPortals.push({ pos1: portal1, pos2: portal2, image: IMAGES.portals[i % IMAGES.portals.length] });
         }
         setPortalsPositions(newPortals);
-        
+
         const newComets = [];
         for (let i = 0; i < comets; i++) {
           let cometPos;
@@ -353,176 +347,137 @@
           newComets.push(cometPos);
         }
         setCometsPositions(newComets);
-        
+
         const newRoute = [];
         let currentPos = { x: start.x, y: start.y };
-        let lastDirection = null; // Последнее направление
-        const visitedRecently = []; // История посещенных клеток (последние 10 шагов)
-        const maxHistorySize = 10; // Размер истории
-        
-        // Функция для получения противоположного направления
+        let lastDirection = null;
+        const visitedRecently = [];
+        const maxHistorySize = 10;
+
         const getOpposite = (dir) => {
           const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
           return opposites[dir];
         };
-        
-        // Функция проверки: была ли клетка недавно посещена
+
         const wasRecentlyVisited = (x, y) => {
           return visitedRecently.some(pos => pos.x === x && pos.y === y);
         };
-        
+
         for (let i = 0; i < steps; i++) {
-          // Добавляем текущую позицию в историю
           visitedRecently.push({ x: currentPos.x, y: currentPos.y });
-          if (visitedRecently.length > maxHistorySize) {
-            visitedRecently.shift(); // Удаляем самую старую
-          }
-          
-          // Собираем все возможные направления
+          if (visitedRecently.length > maxHistorySize) visitedRecently.shift();
+
           const allDirections = [];
           if (currentPos.y > 0) allDirections.push('up');
           if (currentPos.y < gridSize - 1) allDirections.push('down');
           if (currentPos.x > 0) allDirections.push('left');
           if (currentPos.x < gridSize - 1) allDirections.push('right');
-          
           if (allDirections.length === 0) break;
-          
-          // Фильтруем направления с весами
+
           const weightedDirections = [];
-          
           for (const dir of allDirections) {
-            // Вычисляем новую позицию для этого направления
             let testX = currentPos.x, testY = currentPos.y;
-            switch (dir) {
-              case 'up': testY--; break;
-              case 'down': testY++; break;
-              case 'left': testX--; break;
-              case 'right': testX++; break;
-            }
-            
-            // Базовый вес = 1
+            if (dir === 'up') testY--;
+            if (dir === 'down') testY++;
+            if (dir === 'left') testX--;
+            if (dir === 'right') testX++;
+
             let weight = 1;
-            
-            // 1. Запрет возврата назад (противоположное направление)
-            if (lastDirection && dir === getOpposite(lastDirection)) {
-              continue; // Полностью исключаем это направление
-            }
-            
-            // 2. Поощрение движения в том же направлении (50% шанс)
-            if (lastDirection && dir === lastDirection) {
-              weight = 2; // В 2 раза больше шанс продолжить в том же направлении (≈50%)
-            }
-            
-            // 3. Избегаем недавно посещенных клеток
-            if (wasRecentlyVisited(testX, testY)) {
-              weight = 0.1; // Очень низкий вес, но не ноль (если нет других вариантов)
-            }
-            
-            // 4. Учитываем близость к краям - отталкиваемся от краев
+            if (lastDirection && dir === getOpposite(lastDirection)) continue;
+            if (lastDirection && dir === lastDirection) weight = 2;
+            if (wasRecentlyVisited(testX, testY)) weight = 0.1;
+
             const distanceFromEdges = Math.min(
-              testX, 
-              testY, 
-              gridSize - 1 - testX, 
-              gridSize - 1 - testY
+              testX, testY, gridSize - 1 - testX, gridSize - 1 - testY
             );
-            // Если близко к краю (расстояние 0-1), уменьшаем вес
-            if (distanceFromEdges <= 1) {
-              weight *= 0.3;
-            }
-            // Если в центральной зоне, немного увеличиваем вес
-            else if (distanceFromEdges >= gridSize / 3) {
-              weight *= 1.2;
-            }
-            
-            // Добавляем направление с его весом
-            weightedDirections.push({ direction: dir, weight: weight });
+            if (distanceFromEdges <= 1) weight *= 0.3;
+            else if (distanceFromEdges >= gridSize / 3) weight *= 1.2;
+
+            weightedDirections.push({ direction: dir, weight });
           }
-          
-          // Если нет доступных направлений (очень редкий случай), берем любое
+
           if (weightedDirections.length === 0) {
-            if (allDirections.length > 0) {
-              weightedDirections.push({ direction: allDirections[0], weight: 1 });
-            } else {
-              break;
-            }
+            if (allDirections.length > 0) weightedDirections.push({ direction: allDirections[0], weight: 1 });
+            else break;
           }
-          
-          // Выбираем направление с учетом весов
-          const totalWeight = weightedDirections.reduce((sum, item) => sum + item.weight, 0);
-          let random = Math.random() * totalWeight;
+
+          const totalWeight = weightedDirections.reduce((s, it) => s + it.weight, 0);
+          let rnd = Math.random() * totalWeight;
           let selectedDirection = weightedDirections[0].direction;
-          
-          for (const item of weightedDirections) {
-            random -= item.weight;
-            if (random <= 0) {
-              selectedDirection = item.direction;
-              break;
-            }
+          for (const it of weightedDirections) {
+            rnd -= it.weight;
+            if (rnd <= 0) { selectedDirection = it.direction; break; }
           }
-          
-          // Применяем выбранное направление
+
           let newX = currentPos.x, newY = currentPos.y;
-          switch (selectedDirection) {
-            case 'up': newY--; break;
-            case 'down': newY++; break;
-            case 'left': newX--; break;
-            case 'right': newX++; break;
-          }
-          
+          if (selectedDirection === 'up') newY--;
+          if (selectedDirection === 'down') newY++;
+          if (selectedDirection === 'left') newX--;
+          if (selectedDirection === 'right') newX++;
+
           if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) break;
           currentPos = { x: newX, y: newY };
-          lastDirection = selectedDirection; // Запоминаем направление
-          
-          const portal = newPortals.find(p => 
+          lastDirection = selectedDirection;
+
+          const portal = newPortals.find(p =>
             (p.pos1.x === currentPos.x && p.pos1.y === currentPos.y) ||
             (p.pos2.x === currentPos.x && p.pos2.y === currentPos.y)
           );
-          
+
           if (portal) {
-            currentPos = portal.pos1.x === currentPos.x && portal.pos1.y === currentPos.y 
+            currentPos = portal.pos1.x === currentPos.x && portal.pos1.y === currentPos.y
               ? { x: portal.pos2.x, y: portal.pos2.y }
               : { x: portal.pos1.x, y: portal.pos1.y };
-            lastDirection = null; // Сбрасываем направление после портала
+            lastDirection = null;
           }
-          
+
           if (currentPos.x < 0 || currentPos.x >= gridSize || currentPos.y < 0 || currentPos.y >= gridSize) break;
           newRoute.push({ direction: selectedDirection, position: { x: currentPos.x, y: currentPos.y } });
         }
-        
+
         setRoute(newRoute);
       };
 
       const startGame = () => setScreen('confirm');
-      const confirmSettings = () => { 
-        generateRoute(); 
-        
-        // Предзагружаем все необходимые звуки с версией для кэш-бастинга
-        const soundsToPreload = ['3', '2', '1', 'start', 'up', 'down', 'left', 'right'];
-        soundsToPreload.forEach(sound => {
-          const soundPath = `./sounds/${language}/${sound}.mp3?v=${SOUND_VERSION}`;
-          if (!audioCache.current[soundPath]) {
-            const audio = new Audio(soundPath);
+
+      const confirmSettings = () => {
+        generateRoute();
+
+        // Предзагрузка: языковые + общий click
+        const langSounds = ['start', 'up', 'down', 'left', 'right'];
+        langSounds.forEach(sound => {
+          const path = withV(`./sounds/${language}/${sound}.mp3`);
+          if (!audioCache.current[path]) {
+            const audio = new Audio(path);
             audio.preload = 'auto';
             audio.load();
-            audioCache.current[soundPath] = audio;
+            audioCache.current[path] = audio;
           }
         });
-        
-        setScreen('countdown'); 
-        setCountdown(3); 
-        setGameStarted(true); 
+        const clickPath = withV(`./sounds/click.mp3`);
+        if (!audioCache.current[clickPath]) {
+          const audio = new Audio(clickPath);
+          audio.preload = 'auto';
+          audio.load();
+          audioCache.current[clickPath] = audio;
+        }
+
+        setScreen('countdown');
+        setCountdown(3);
+        setGameStarted(true);
       };
 
+      // === Обратный отсчёт: 3–2–1 с кликом, затем "старт" ===
       useEffect(() => {
         if (screen === 'countdown' && gameStarted) {
           if (countdown > 0) {
-            // Звук воспроизводится синхронно с отображением цифры
-            playSound(countdown.toString());
+            // каждый тик — проигрываем click.mp3
+            playClick();
             const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
             return () => clearTimeout(timer);
           } else {
-            // Для "Старт" также синхронно
-            playSound('start');
+            // "Старт" — языковой звук
+            playLangSound('start');
             setTimeout(() => {
               setScreen('game');
               setCurrentStep(0);
@@ -532,15 +487,16 @@
         }
       }, [screen, countdown, gameStarted]);
 
+      // === Проигрывание маршрута (команды) ===
       const playRoute = () => {
         let step = 0;
-        const intervalTime = settings.commandSpeed * 1000; // Преобразуем секунды в миллисекунды
-        
+        const intervalTime = settings.commandSpeed * 1000;
+
         const interval = setInterval(() => {
           if (step < route.length) {
             setCurrentDirection(route[step].direction);
             if (settings.commandMode === 'voice' || settings.commandMode === 'voice+indicator') {
-              playSound(route[step].direction);
+              playLangSound(route[step].direction);
             }
             step++;
             setCurrentStep(step);
@@ -548,12 +504,8 @@
             clearInterval(interval);
             routeIntervalRef.current = null;
             setCurrentDirection(null);
-            
-            // Скрываем кометы если они есть (СРАЗУ после окончания команд)
-            if (cometsPositions.length > 0) {
-              setShowComets(false);
-            }
-            
+
+            if (cometsPositions.length > 0) setShowComets(false);
             setMessage(t.whereLeo);
           }
         }, intervalTime);
@@ -564,10 +516,10 @@
         if (showingRoute) return;
         if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        
+
         setPlayerGuess({ x, y });
         const finalPos = route[route.length - 1].position;
-        
+
         if (x === finalPos.x && y === finalPos.y) {
           setIsCorrect(true);
           setMessage(t.correct);
@@ -578,63 +530,54 @@
         }
       };
 
+      // === Показ правильного пути Лео (с кликом на каждый шаг) ===
       const showLeoRoute = () => {
         if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
         setShowingRoute(true);
-        const start = routeStartPosition; // Используем сохраненную стартовую позицию
+        const start = routeStartPosition;
         setLeoPosition(start);
-        
-        // Функция проверки: соседние ли клетки
-        const areNeighbors = (pos1, pos2) => {
-          const dx = Math.abs(pos1.x - pos2.x);
-          const dy = Math.abs(pos1.y - pos2.y);
+
+        const areNeighbors = (p1, p2) => {
+          const dx = Math.abs(p1.x - p2.x), dy = Math.abs(p1.y - p2.y);
           return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
         };
-        
+
         let step = 0;
         let previousPos = start;
-        
+
         const moveToNextPosition = () => {
           if (step < route.length) {
             const nextPos = route[step].position;
             const direction = route[step].direction;
-            
-            // Проверяем: телепортация или обычный ход?
+
             if (!areNeighbors(previousPos, nextPos)) {
-              // Это телепортация!
-              // Вычисляем позицию входного портала
+              // телепорт: сначала к порталу, затем перенос
               let portalEntry = { ...previousPos };
-              switch (direction) {
-                case 'up': portalEntry.y--; break;
-                case 'down': portalEntry.y++; break;
-                case 'left': portalEntry.x--; break;
-                case 'right': portalEntry.x++; break;
-              }
-              
-              // Шаг 1: Двигаемся НА портал (если не уже на нем)
+              if (direction === 'up') portalEntry.y--;
+              if (direction === 'down') portalEntry.y++;
+              if (direction === 'left') portalEntry.x--;
+              if (direction === 'right') portalEntry.x++;
+
               if (previousPos.x !== portalEntry.x || previousPos.y !== portalEntry.y) {
-                playSound('1'); // Звук клика
+                playClick();
                 setLeoPosition(portalEntry);
-                
-                // Шаг 2: Через короткую задержку телепортируемся
                 setTimeout(() => {
-                  playSound('1'); // Звук клика для телепортации
+                  playClick();
                   setLeoPosition(nextPos);
                   previousPos = nextPos;
                   step++;
                   setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
                 }, settings.commandSpeed * 1000);
               } else {
-                // Уже на портале, просто телепортируемся
-                playSound('1'); // Звук клика
+                playClick();
                 setLeoPosition(nextPos);
                 previousPos = nextPos;
                 step++;
                 setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
               }
             } else {
-              // Обычный ход
-              playSound('1'); // Звук клика
+              // обычный шаг
+              playClick();
               setLeoPosition(nextPos);
               previousPos = nextPos;
               step++;
@@ -642,43 +585,29 @@
             }
           } else {
             setShowingRoute(false);
-            
-            // Проверяем, есть ли кометы
             if (cometsPositions.length > 0) {
-              // Кометы уже скрыты, переходим в режим угадывания
               setCometGuessMode(true);
               setMessage(t.whereCometWas);
             } else {
-              // Если комет нет, сразу переходим к результатам
               setScreen('results');
             }
           }
         };
-        
-        // Запускаем первое движение
+
         setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
       };
 
       const checkCometAnswer = (x, y) => {
-        // Очищаем предыдущую попытку
         setCometGuess(null);
-        
-        // Небольшая задержка для визуального эффекта
         setTimeout(() => {
           setCometGuess({ x, y });
-          
-          // Проверяем есть ли комета на этой позиции
           let isCometHere = false;
           for (let i = 0; i < cometsPositions.length; i++) {
-            if (cometsPositions[i].x === x && cometsPositions[i].y === y) {
-              isCometHere = true;
-              break;
-            }
+            if (cometsPositions[i].x === x && cometsPositions[i].y === y) { isCometHere = true; break; }
           }
-          
           if (isCometHere) {
             setMessage(t.cometCorrect);
-            setShowComets(true); // Показываем комету обратно
+            setShowComets(true);
             setTimeout(() => {
               setCometGuessMode(false);
               setCometGuess(null);
@@ -687,7 +616,6 @@
             }, 2000);
           } else {
             setMessage(t.cometIncorrect);
-            // Через секунду очищаем неправильную попытку
             setTimeout(() => {
               setCometGuess(null);
               setMessage(t.whereCometWas);
@@ -699,38 +627,38 @@
       const repeatRound = () => {
         if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setScreen('game'); 
-        setCurrentStep(0); 
-        setPlayerGuess(null); 
-        setIsCorrect(null); 
-        setMessage(''); 
+        setScreen('game');
+        setCurrentStep(0);
+        setPlayerGuess(null);
+        setIsCorrect(null);
+        setMessage('');
         setCurrentDirection(null);
         setCometGuessMode(false);
         setCometGuess(null);
-        setShowComets(true); // Показываем кометы обратно
-        setLeoPosition(routeStartPosition); // Используем сохраненную стартовую позицию
+        setShowComets(true);
+        setLeoPosition(routeStartPosition);
         setTimeout(() => { routeIntervalRef.current = playRoute(); }, 500);
       };
 
-      const nextRound = () => { 
+      const nextRound = () => {
         setPlayerGuess(null);
         setCometGuess(null);
         setCometGuessMode(false);
         setShowComets(true);
-        setGameStarted(false); 
-        startGame(); 
+        setGameStarted(false);
+        startGame();
       };
 
       const exitGame = () => {
         if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setScreen('settings'); 
-        setRoute([]); 
-        setCurrentStep(0); 
-        setPlayerGuess(null); 
-        setIsCorrect(null); 
-        setMessage(''); 
-        setCurrentDirection(null); 
+        setScreen('settings');
+        setRoute([]);
+        setCurrentStep(0);
+        setPlayerGuess(null);
+        setIsCorrect(null);
+        setMessage('');
+        setCurrentDirection(null);
         setGameStarted(false);
         setCometGuessMode(false);
         setCometGuess(null);
@@ -746,8 +674,8 @@
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg text-center absolute left-1/2 transform -translate-x-1/2 px-2">{t.title}</h1>
             <div className="rounded-full flex gap-1.5" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.9)', padding: '3px' }}>
               {['UA', 'EN', 'RU', 'ES'].map(lang => (
-                <button 
-                  key={lang} 
+                <button
+                  key={lang}
                   onClick={() => setLanguage(lang.toLowerCase())}
                   style={{
                     border: 0,
@@ -775,7 +703,7 @@
         const maxSize = Math.min(600, window.innerWidth * 0.95, window.innerHeight * 0.7);
         const cellSize = maxSize / settings.gridSize;
         let cellNumber = 1;
-        
+
         for (let y = 0; y < settings.gridSize; y++) {
           for (let x = 0; x < settings.gridSize; x++) {
             const isLeo = leoPosition.x === x && leoPosition.y === y;
@@ -785,9 +713,9 @@
             const isCometGuess = cometGuess && cometGuess.x === x && cometGuess.y === y;
             const numberFontSize = Math.max(12, cellSize * 0.3);
             const imageSize = Math.max(30, cellSize * 0.7);
-            
+
             cells.push(
-              <div key={`${x}-${y}`} 
+              <div key={`${x}-${y}`}
                 onClick={() => {
                   if (cometGuessMode) {
                     checkCometAnswer(x, y);
@@ -816,7 +744,7 @@
             );
           }
         }
-        
+
         return (
           <div className="relative mx-auto" style={{ width: maxSize, height: maxSize }}>
             <div className="grid relative" style={{ gridTemplateColumns: `repeat(${settings.gridSize}, 1fr)`, width: maxSize, height: maxSize, zIndex: 1 }}>
@@ -827,36 +755,24 @@
         );
       };
 
-      // Компонент для отрисовки космического пути Лео
       const PathOverlay = ({ maxSize, cellSize }) => {
-        // Показываем путь ТОЛЬКО при показе маршрута или на экране результатов
         if (route.length === 0) return null;
         if (!showingRoute && screen !== 'results') return null;
-        
-        console.log('PathOverlay рендерится!', { showingRoute, screen, routeLength: route.length });
-        
-        // Рассчитываем координаты центров клеток
+
         const getCoords = (x, y) => ({
           x: x * cellSize + cellSize / 2,
           y: y * cellSize + cellSize / 2
         });
-        
-        // Проверка: соседние ли клетки
+
         const areNeighbors = (pos1, pos2) => {
           const dx = Math.abs(pos1.x - pos2.x);
           const dy = Math.abs(pos1.y - pos2.y);
           return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
         };
-        
-        // Используем сохраненную стартовую позицию маршрута
+
         const startPos = routeStartPosition;
-        
-        // Собираем все точки пути
         const pathPoints = [startPos, ...route.map(step => step.position)];
-        
-        console.log('PathPoints:', pathPoints);
-        
-        // Создаем простые линии между всеми точками
+
         const lines = [];
         for (let i = 0; i < pathPoints.length - 1; i++) {
           const from = pathPoints[i];
@@ -864,67 +780,33 @@
           const fromCoords = getCoords(from.x, from.y);
           const toCoords = getCoords(to.x, to.y);
           const isNeighbor = areNeighbors(from, to);
-          
+
           if (!isNeighbor) {
-            // Телепортация - находим портал входа
             const direction = route[i] ? route[i].direction : null;
             let portalEntry = { ...from };
-            
-            if (direction) {
-              switch (direction) {
-                case 'up': portalEntry.y--; break;
-                case 'down': portalEntry.y++; break;
-                case 'left': portalEntry.x--; break;
-                case 'right': portalEntry.x++; break;
-              }
-              
-              // Линия до портала
-              if (from.x !== portalEntry.x || from.y !== portalEntry.y) {
-                const portalCoords = getCoords(portalEntry.x, portalEntry.y);
-                lines.push({
-                  from: fromCoords,
-                  to: portalCoords,
-                  color: '#FB923C',
-                  type: 'walk'
-                });
-              }
-              
-              // Линия телепортации
+            if (direction === 'up') portalEntry.y--;
+            if (direction === 'down') portalEntry.y++;
+            if (direction === 'left') portalEntry.x--;
+            if (direction === 'right') portalEntry.x++;
+
+            if (from.x !== portalEntry.x || from.y !== portalEntry.y) {
               const portalCoords = getCoords(portalEntry.x, portalEntry.y);
-              lines.push({
-                from: portalCoords,
-                to: toCoords,
-                color: '#3B82F6',
-                type: 'teleport'
-              });
+              lines.push({ from: fromCoords, to: portalCoords, color: '#FB923C', type: 'walk' });
             }
+
+            const portalCoords = getCoords(portalEntry.x, portalEntry.y);
+            lines.push({ from: portalCoords, to: toCoords, color: '#3B82F6', type: 'teleport' });
           } else {
-            // Обычный ход
-            lines.push({
-              from: fromCoords,
-              to: toCoords,
-              color: '#FB923C',
-              type: 'walk'
-            });
+            lines.push({ from: fromCoords, to: toCoords, color: '#FB923C', type: 'walk' });
           }
         }
-        
-        console.log('Lines to draw:', lines.length, lines);
-        
+
         return (
-          <svg 
+          <svg
             className="absolute inset-0"
-            style={{ 
-              width: maxSize, 
-              height: maxSize, 
-              zIndex: 100,
-              pointerEvents: 'none',
-              top: 0,
-              left: 0
-            }}
+            style={{ width: maxSize, height: maxSize, zIndex: 100, pointerEvents: 'none', top: 0, left: 0 }}
             viewBox={`0 0 ${maxSize} ${maxSize}`}
           >
-            {/* Рисуем все линии */}
             {lines.map((line, i) => (
               <line
                 key={`line-${i}`}
@@ -940,20 +822,9 @@
                 className={line.type === 'teleport' ? 'teleport-line' : ''}
               />
             ))}
-            
-            {/* Точки на всех позициях для отладки */}
             {pathPoints.map((point, i) => {
               const coords = getCoords(point.x, point.y);
-              return (
-                <circle
-                  key={`point-${i}`}
-                  cx={coords.x}
-                  cy={coords.y}
-                  r="6"
-                  fill="#FCD34D"
-                  opacity="0.9"
-                />
-              );
+              return <circle key={`point-${i}`} cx={coords.x} cy={coords.y} r="6" fill="#FCD34D" opacity="0.9" />;
             })}
           </svg>
         );
@@ -961,54 +832,30 @@
 
       const DirectionIndicator = () => {
         const boxSize = 100;
-        
-        // SVG-стрелки с красивым дизайном
         const ArrowSVG = ({ direction }) => {
           const rotations = { up: 270, down: 90, left: 180, right: 0 };
-          
           return (
-            <svg 
-              width={boxSize * 0.75} 
-              height={boxSize * 0.75} 
-              viewBox="0 0 100 100" 
-              style={{ transform: `rotate(${rotations[direction]}deg)` }}
-            >
+            <svg width={boxSize * 0.75} height={boxSize * 0.75} viewBox="0 0 100 100" style={{ transform: `rotate(${rotations[direction]}deg)` }}>
               <defs>
                 <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" style={{ stopColor: '#F97316', stopOpacity: 1 }} />
                   <stop offset="100%" style={{ stopColor: '#FB923C', stopOpacity: 1 }} />
                 </linearGradient>
-                <filter id="shadow">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
-                </filter>
+                <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/></filter>
               </defs>
-              {/* Основная стрелка */}
-              <path 
-                d="M 20 35 L 60 35 L 60 15 L 90 50 L 60 85 L 60 65 L 20 65 Z" 
-                fill="url(#arrowGradient)"
-                stroke="#1F2937"
-                strokeWidth="4"
-                strokeLinejoin="round"
-                filter="url(#shadow)"
-              />
+              <path d="M 20 35 L 60 35 L 60 15 L 90 50 L 60 85 L 60 65 L 20 65 Z"
+                    fill="url(#arrowGradient)" stroke="#1F2937" strokeWidth="4" strokeLinejoin="round" filter="url(#shadow)"/>
             </svg>
           );
         };
-        
+
         return (
           <div className="flex items-end justify-center" style={{ minHeight: 120 }}>
             {currentDirection && settings.commandMode !== 'voice' ? (
-              <div 
+              <div
                 key={currentDirection + currentStep}
                 className="bg-gradient-to-br from-amber-50 to-orange-100 backdrop-blur-sm rounded-2xl shadow-2xl border-4 border-orange-400 flex items-center justify-center overflow-hidden"
-                style={{ 
-                  width: `${boxSize}px`, 
-                  height: `${boxSize}px`, 
-                  minWidth: `${boxSize}px`, 
-                  minHeight: `${boxSize}px`, 
-                  padding: 0,
-                  animation: 'pulse 0.5s ease-in-out'
-                }}>
+                style={{ width: `${boxSize}px`, height: `${boxSize}px`, minWidth: `${boxSize}px`, minHeight: `${boxSize}px`, padding: 0, animation: 'pulse 0.5s ease-in-out' }}>
                 <ArrowSVG direction={currentDirection} />
               </div>
             ) : message ? (
@@ -1020,6 +867,7 @@
         );
       };
 
+      // === Экраны ===
       if (screen === 'settings') {
         return (
           <div className="min-h-screen">
@@ -1136,7 +984,7 @@
                     {renderGrid()}
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1000 }}>
-                    <div className="text-6xl sm:text-7xl md:text-9xl font-black text-white drop-shadow-2xl animate-pulse" 
+                    <div className="text-6xl sm:text-7xl md:text-9xl font-black text-white drop-shadow-2xl animate-pulse"
                       style={{ textShadow: '0 0 40px rgba(255,255,255,0.8), 0 0 80px rgba(255,255,255,0.4)' }}>
                       {countdown > 0 ? countdown : t.start}
                     </div>
