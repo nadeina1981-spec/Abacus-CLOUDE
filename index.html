@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Лео в космосе</title>
-  <!-- Версию можно менять тут, чтобы пробить кэш -->
-  <meta name="build" content="2025-11-09-1">
+  <!-- Версия билда для кэш-бастинга. Меняй значение при каждом обновлении ассетов -->
+  <meta name="build" content="2025-11-09-2">
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -19,22 +19,10 @@
       background: #EC8D00;
       min-height: 100vh;
     }
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.9; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    @keyframes teleportPulse {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-    @keyframes dashMove {
-      0% { stroke-dashoffset: 0; }
-      100% { stroke-dashoffset: 40; }
-    }
-    .teleport-line {
-      animation: teleportPulse 1.5s infinite ease-in-out, dashMove 2s linear infinite;
-    }
+    @keyframes pulse { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.1);opacity:.9} 100%{transform:scale(1);opacity:1} }
+    @keyframes teleportPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+    @keyframes dashMove { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:40} }
+    .teleport-line { animation: teleportPulse 1.5s infinite ease-in-out, dashMove 2s linear infinite; }
   </style>
 </head>
 <body>
@@ -44,14 +32,15 @@
     const { useState, useEffect, useRef } = React;
 
     const LeoSpaceNavigator = () => {
-      // === Универсальная версия билда для кэш-бастинга ===
+      // ===== Версионирование ассетов (кэш-бастинг) =====
       const BUILD_VERSION =
         new URLSearchParams(location.search).get('v') ||
         document.querySelector('meta[name="build"]')?.content ||
         '1';
-
       const withV = (path) => `${path}${path.includes('?') ? '&' : '?'}v=${BUILD_VERSION}`;
-      const SOUND_VERSION = BUILD_VERSION; // оставим, если где-то понадобится отдельно
+
+      // Оставляем совместимость: SOUND_VERSION = BUILD_VERSION
+      const SOUND_VERSION = BUILD_VERSION;
 
       const [screen, setScreen] = useState('settings');
       const [settings, setSettings] = useState({
@@ -85,7 +74,7 @@
       const routeIntervalRef = useRef(null);
       const audioCache = useRef({});
 
-      // === Картинки с версионированием ===
+      // ===== Картинки (тоже с версией) =====
       const IMAGES = {
         leo: withV('./images/leo.png'),
         logo: withV('./images/logo.png'),
@@ -99,163 +88,52 @@
         ]
       };
 
-      // === Тексты ===
+      // ===== Тексты =====
       const translations = {
-        ua: {
-          title: 'Лео в космосі',
-          settings: 'Налаштування гри',
-          gridSize: 'Розмір поля:',
-          steps: 'Кількість кроків:',
-          commandMode: 'Режим команд:',
-          voice: 'Голос',
-          voiceIndicator: 'Голос + Вказівник',
-          indicator: 'Вказівник',
-          portals: 'Портали:',
-          comets: 'Комети:',
-          startPosition: 'Стартова позиція:',
-          center: 'Центр',
-          random: 'Випадкова',
-          startGame: 'Почати гру',
-          confirm: 'Підтвердити',
-          backToSettings: 'Повернутись в налаштування',
-          start: 'Старт',
-          correct: 'Вірно!',
-          incorrect: 'Невірно, спробуй ще.',
-          whereLeo: 'Де Лео?',
-          wellDone: 'Молодець!',
-          exit: 'Вихід',
-          repeatRound: 'Повторити раунд',
-          nextRound: 'Наступний раунд',
-          listening: 'Слухай команди...',
-          clickWhere: 'Натисни на клітинку, де Лео!',
-          settingsSummary: 'Підтвердження налаштувань',
-          up: 'Вгору',
-          down: 'Вниз',
-          left: 'Ліворуч',
-          right: 'Праворуч',
-          whereCometWas: 'Де була комета?',
-          cometCorrect: 'Правильно! Комета була тут!',
-          cometIncorrect: 'Невірно, спробуй ще.',
-          commandSpeed: 'Швидкість команд:'
-        },
-        en: {
-          title: 'Leo in Space',
-          settings: 'Game Settings',
-          gridSize: 'Grid Size:',
-          steps: 'Number of Steps:',
-          commandMode: 'Command Mode:',
-          voice: 'Voice',
-          voiceIndicator: 'Voice + Indicator',
-          indicator: 'Indicator',
-          portals: 'Portals:',
-          comets: 'Comets:',
-          startPosition: 'Start Position:',
-          center: 'Center',
-          random: 'Random',
-          startGame: 'Start Game',
-          confirm: 'Confirm',
-          backToSettings: 'Back to Settings',
-          start: 'Start',
-          correct: 'Correct!',
-          incorrect: 'Incorrect, try again.',
-          whereLeo: 'Where is Leo?',
-          wellDone: 'Well Done!',
-          exit: 'Exit',
-          repeatRound: 'Repeat Round',
-          nextRound: 'Next Round',
-          listening: 'Listen to commands...',
-          clickWhere: 'Click where Leo is!',
-          settingsSummary: 'Confirm Settings',
-          up: 'Up',
-          down: 'Down',
-          left: 'Left',
-          right: 'Right',
-          whereCometWas: 'Where was the comet?',
-          cometCorrect: 'Correct! The comet was here!',
-          cometIncorrect: 'Incorrect, try again.',
-          commandSpeed: 'Command Speed:'
-        },
-        ru: {
-          title: 'Лео в космосе',
-          settings: 'Настройки игры',
-          gridSize: 'Размер поля:',
-          steps: 'Количество шагов:',
-          commandMode: 'Режим команд:',
-          voice: 'Голос',
-          voiceIndicator: 'Голос + Указатель',
-          indicator: 'Указатель',
-          portals: 'Порталы:',
-          comets: 'Кометы:',
-          startPosition: 'Стартовая позиция:',
-          center: 'Центр',
-          random: 'Случайная',
-          startGame: 'Начать игру',
-          confirm: 'Подтвердить',
-          backToSettings: 'Вернуться в настройки',
-          start: 'Старт',
-          correct: 'Верно!',
-          incorrect: 'Неверно, попробуй ещё.',
-          whereLeo: 'Где Лео?',
-          wellDone: 'Молодец!',
-          exit: 'Выход',
-          repeatRound: 'Повторить раунд',
-          nextRound: 'Следующий раунд',
-          listening: 'Слушай команды...',
-          clickWhere: 'Нажми на клетку, где Лео!',
-          settingsSummary: 'Подтверждение настроек',
-          up: 'Вверх',
-          down: 'Вниз',
-          left: 'Влево',
-          right: 'Вправо',
-          whereCometWas: 'Где была комета?',
-          cometCorrect: 'Правильно! Комета была здесь!',
-          cometIncorrect: 'Неверно, попробуй ещё.',
-          commandSpeed: 'Скорость команд:'
-        },
-        es: {
-          title: 'Leo en el espacio',
-          settings: 'Configuración del juego',
-          gridSize: 'Tamaño del campo:',
-          steps: 'Número de pasos:',
-          commandMode: 'Modo de comandos:',
-          voice: 'Voz',
-          voiceIndicator: 'Voz + Indicador',
-          indicator: 'Indicador',
-          portals: 'Portales:',
-          comets: 'Cometas:',
-          startPosition: 'Posición inicial:',
-          center: 'Centro',
-          random: 'Aleatorio',
-          startGame: 'Comenzar juego',
-          confirm: 'Confirmar',
-          backToSettings: 'Volver a configuración',
-          start: 'Inicio',
-          correct: '¡Correcto!',
-          incorrect: 'Incorrecto, inténtalo de nuevo.',
-          whereLeo: '¿Dónde está Leo?',
-          wellDone: '¡Bien hecho!',
-          exit: 'Salir',
-          repeatRound: 'Repetir ronda',
-          nextRound: 'Siguiente ronda',
-          listening: 'Escucha los comandos...',
-          clickWhere: '¡Haz clic donde está Leo!',
-          settingsSummary: 'Confirmar configuración',
-          up: 'Arriba',
-          down: 'Abajo',
-          left: 'Izquierda',
-          right: 'Derecha',
-          whereCometWas: '¿Dónde estaba el cometa?',
-          cometCorrect: '¡Correcto! ¡El cometa estaba aquí!',
-          cometIncorrect: 'Incorrecto, inténtalo de nuevo.',
-          commandSpeed: 'Velocidad de comandos:'
-        }
+        ua: { title:'Лео в космосі', settings:'Налаштування гри', gridSize:'Розмір поля:', steps:'Кількість кроків:',
+          commandMode:'Режим команд:', voice:'Голос', voiceIndicator:'Голос + Вказівник', indicator:'Вказівник',
+          portals:'Портали:', comets:'Комети:', startPosition:'Стартова позиція:', center:'Центр', random:'Випадкова',
+          startGame:'Почати гру', confirm:'Підтвердити', backToSettings:'Повернутись в налаштування', start:'Старт',
+          correct:'Вірно!', incorrect:'Невірно, спробуй ще.', whereLeo:'Де Лео?', wellDone:'Молодець!', exit:'Вихід',
+          repeatRound:'Повторити раунд', nextRound:'Наступний раунд', listening:'Слухай команди...',
+          clickWhere:'Натисни на клітинку, де Лео!', settingsSummary:'Підтвердження налаштувань',
+          up:'Вгору', down:'Вниз', left:'Ліворуч', right:'Праворуч', whereCometWas:'Де була комета?',
+          cometCorrect:'Правильно! Комета була тут!', cometIncorrect:'Невірно, спробуй ще.', commandSpeed:'Швидкість команд:' },
+        en: { title:'Leo in Space', settings:'Game Settings', gridSize:'Grid Size:', steps:'Number of Steps:',
+          commandMode:'Command Mode:', voice:'Voice', voiceIndicator:'Voice + Indicator', indicator:'Indicator',
+          portals:'Portals:', comets:'Comets:', startPosition:'Start Position:', center:'Center', random:'Random',
+          startGame:'Start Game', confirm:'Confirm', backToSettings:'Back to Settings', start:'Start',
+          correct:'Correct!', incorrect:'Incorrect, try again.', whereLeo:'Where is Leo?', wellDone:'Well Done!', exit:'Exit',
+          repeatRound:'Repeat Round', nextRound:'Next Round', listening:'Listen to commands...',
+          clickWhere:'Click where Leo is!', settingsSummary:'Confirm Settings',
+          up:'Up', down:'Down', left:'Left', right:'Right', whereCometWas:'Where was the comet?',
+          cometCorrect:'Correct! The comet was here!', cometIncorrect:'Incorrect, try again.', commandSpeed:'Command Speed:' },
+        ru: { title:'Лео в космосе', settings:'Настройки игры', gridSize:'Размер поля:', steps:'Количество шагов:',
+          commandMode:'Режим команд:', voice:'Голос', voiceIndicator:'Голос + Указатель', indicator:'Указатель',
+          portals:'Порталы:', comets:'Кометы:', startPosition:'Стартовая позиция:', center:'Центр', random:'Случайная',
+          startGame:'Начать игру', confirm:'Подтвердить', backToSettings:'Вернуться в настройки', start:'Старт',
+          correct:'Верно!', incorrect:'Неверно, попробуй ещё.', whereLeo:'Где Лео?', wellDone:'Молодец!', exit:'Выход',
+          repeatRound:'Повторить раунд', nextRound:'Следующий раунд', listening:'Слушай команды...',
+          clickWhere:'Нажми на клетку, где Лео!', settingsSummary:'Подтверждение настроек',
+          up:'Вверх', down:'Вниз', left:'Влево', right:'Вправо', whereCometWas:'Где была комета?',
+          cometCorrect:'Правильно! Комета была здесь!', cometIncorrect:'Неверно, попробуй ещё.', commandSpeed:'Скорость команд:' },
+        es: { title:'Leo en el espacio', settings:'Configuración del juego', gridSize:'Tamaño del campo:', steps:'Número de pasos:',
+          commandMode:'Modo de comandos:', voice:'Voz', voiceIndicator:'Voz + Indicador', indicator:'Indicador',
+          portals:'Portales:', comets:'Cometas:', startPosition:'Posición inicial:', center:'Centro', random:'Aleatorio',
+          startGame:'Comenzar juego', confirm:'Confirmar', backToSettings:'Volver a configuración', start:'Inicio',
+          correct:'¡Correcto!', incorrect:'Incorrecto, inténtalo de nuevo.', whereLeo:'¿Dónde está Leo?', wellDone:'¡Bien hecho!', exit:'Salir',
+          repeatRound:'Repetir ronda', nextRound:'Siguiente ronda', listening:'Escucha los comandos...',
+          clickWhere:'¡Haz clic donde está Leo!', settingsSummary:'Confirmar configuración',
+          up:'Arriba', down:'Abajo', left:'Izquierda', right:'Derecha', whereCometWas:'¿Dónde estaba el cometa?',
+          cometCorrect:'¡Correcto! ¡El cometa estaba aquí!', cometIncorrect:'Incorrecto, inténtalo de nuevo.', commandSpeed:'Velocidad de comandos:' }
       };
 
       const t = translations[language];
 
-      // === Воспроизведение звуков ===
-      // Языковые звуки: up/down/left/right/start — из ./sounds/{lang}/
-      const playLangSound = async (soundName) => {
+      // ===== Аудио =====
+
+      // Языковые звуки (up/down/left/right/start)
+      const playSound = async (soundName) => {
         const soundPath = withV(`./sounds/${language}/${soundName}.mp3`);
         try {
           if (!audioCache.current[soundPath]) {
@@ -265,29 +143,30 @@
           }
           const audio = audioCache.current[soundPath];
           audio.currentTime = 0;
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(() => speak(t[soundName] || soundName));
+          const p = audio.play();
+          if (p !== undefined) {
+            p.catch(() => speak(t[soundName] || soundName));
           }
-        } catch {
+        } catch (e) {
           speak(t[soundName] || soundName);
         }
       };
 
-      // Общий клик (один для всех языков): ./sounds/click.mp3
+      // Универсальный клик (общий для всех языков)
       const playClick = async () => {
-        const soundPath = withV(`./sounds/click.mp3`);
+        const clickPath = withV('./sounds/click.mp3');
         try {
-          if (!audioCache.current[soundPath]) {
-            const audio = new Audio(soundPath);
+          if (!audioCache.current[clickPath]) {
+            const audio = new Audio(clickPath);
             audio.preload = 'auto';
-            audioCache.current[soundPath] = audio;
+            audioCache.current[clickPath] = audio;
           }
-          const audio = audioCache.current[soundPath];
+          const audio = audioCache.current[clickPath];
           audio.currentTime = 0;
           await audio.play();
         } catch (e) {
-          // клик без озвучки-замены, просто игнор
+          // Без бэкапа, клик — это SFX; молча игнорируем
+          console.log('click sound error', e);
         }
       };
 
@@ -302,7 +181,7 @@
         }
       };
 
-      // === Генерация маршрута ===
+      // ===== Генерация маршрута =====
       const generateRoute = () => {
         const { gridSize, steps, startPosition, portals, comets } = settings;
         const center = Math.floor(gridSize / 2);
@@ -354,14 +233,8 @@
         const visitedRecently = [];
         const maxHistorySize = 10;
 
-        const getOpposite = (dir) => {
-          const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
-          return opposites[dir];
-        };
-
-        const wasRecentlyVisited = (x, y) => {
-          return visitedRecently.some(pos => pos.x === x && pos.y === y);
-        };
+        const getOpposite = (dir) => ({ up:'down', down:'up', left:'right', right:'left' }[dir]);
+        const wasRecentlyVisited = (x, y) => visitedRecently.some(pos => pos.x === x && pos.y === y);
 
         for (let i = 0; i < steps; i++) {
           visitedRecently.push({ x: currentPos.x, y: currentPos.y });
@@ -387,9 +260,7 @@
             if (lastDirection && dir === lastDirection) weight = 2;
             if (wasRecentlyVisited(testX, testY)) weight = 0.1;
 
-            const distanceFromEdges = Math.min(
-              testX, testY, gridSize - 1 - testX, gridSize - 1 - testY
-            );
+            const distanceFromEdges = Math.min(testX, testY, gridSize - 1 - testX, gridSize - 1 - testY);
             if (distanceFromEdges <= 1) weight *= 0.3;
             else if (distanceFromEdges >= gridSize / 3) weight *= 1.2;
 
@@ -414,8 +285,8 @@
           if (selectedDirection === 'down') newY++;
           if (selectedDirection === 'left') newX--;
           if (selectedDirection === 'right') newX++;
-
           if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) break;
+
           currentPos = { x: newX, y: newY };
           lastDirection = selectedDirection;
 
@@ -423,9 +294,8 @@
             (p.pos1.x === currentPos.x && p.pos1.y === currentPos.y) ||
             (p.pos2.x === currentPos.x && p.pos2.y === currentPos.y)
           );
-
           if (portal) {
-            currentPos = portal.pos1.x === currentPos.x && portal.pos1.y === currentPos.y
+            currentPos = (portal.pos1.x === currentPos.x && portal.pos1.y === currentPos.y)
               ? { x: portal.pos2.x, y: portal.pos2.y }
               : { x: portal.pos1.x, y: portal.pos1.y };
             lastDirection = null;
@@ -443,41 +313,33 @@
       const confirmSettings = () => {
         generateRoute();
 
-        // Предзагрузка: языковые + общий click
-        const langSounds = ['start', 'up', 'down', 'left', 'right'];
-        langSounds.forEach(sound => {
-          const path = withV(`./sounds/${language}/${sound}.mp3`);
-          if (!audioCache.current[path]) {
-            const audio = new Audio(path);
+        // Предзагрузка: языковые и общий клик
+        const langSounds = ['start', 'up', 'down', 'left', 'right']
+          .map(name => withV(`./sounds/${language}/${name}.mp3`));
+        const commonSounds = [ withV('./sounds/click.mp3') ];
+        [...langSounds, ...commonSounds].forEach(soundPath => {
+          if (!audioCache.current[soundPath]) {
+            const audio = new Audio(soundPath);
             audio.preload = 'auto';
             audio.load();
-            audioCache.current[path] = audio;
+            audioCache.current[soundPath] = audio;
           }
         });
-        const clickPath = withV(`./sounds/click.mp3`);
-        if (!audioCache.current[clickPath]) {
-          const audio = new Audio(clickPath);
-          audio.preload = 'auto';
-          audio.load();
-          audioCache.current[clickPath] = audio;
-        }
 
         setScreen('countdown');
         setCountdown(3);
         setGameStarted(true);
       };
 
-      // === Обратный отсчёт: 3–2–1 с кликом, затем "старт" ===
+      // ===== Обратный отсчёт: звучит клик на 3, на 2 и на 1 =====
       useEffect(() => {
         if (screen === 'countdown' && gameStarted) {
           if (countdown > 0) {
-            // каждый тик — проигрываем click.mp3
-            playClick();
+            playClick(); // один и тот же звук на 3/2/1
             const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
             return () => clearTimeout(timer);
           } else {
-            // "Старт" — языковой звук
-            playLangSound('start');
+            playSound('start'); // старт — языковой файл
             setTimeout(() => {
               setScreen('game');
               setCurrentStep(0);
@@ -487,7 +349,7 @@
         }
       }, [screen, countdown, gameStarted]);
 
-      // === Проигрывание маршрута (команды) ===
+      // ===== Проигрывание маршрута =====
       const playRoute = () => {
         let step = 0;
         const intervalTime = settings.commandSpeed * 1000;
@@ -496,7 +358,8 @@
           if (step < route.length) {
             setCurrentDirection(route[step].direction);
             if (settings.commandMode === 'voice' || settings.commandMode === 'voice+indicator') {
-              playLangSound(route[step].direction);
+              // голоса направлений остаются языковыми
+              playSound(route[step].direction);
             }
             step++;
             setCurrentStep(step);
@@ -530,15 +393,16 @@
         }
       };
 
-      // === Показ правильного пути Лео (с кликом на каждый шаг) ===
+      // ===== Показ правильного маршрута (каждый шаг — клик) =====
       const showLeoRoute = () => {
         if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
         setShowingRoute(true);
         const start = routeStartPosition;
         setLeoPosition(start);
 
-        const areNeighbors = (p1, p2) => {
-          const dx = Math.abs(p1.x - p2.x), dy = Math.abs(p1.y - p2.y);
+        const areNeighbors = (a, b) => {
+          const dx = Math.abs(a.x - b.x);
+          const dy = Math.abs(a.y - b.y);
           return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
         };
 
@@ -551,7 +415,7 @@
             const direction = route[step].direction;
 
             if (!areNeighbors(previousPos, nextPos)) {
-              // телепорт: сначала к порталу, затем перенос
+              // телепортация
               let portalEntry = { ...previousPos };
               if (direction === 'up') portalEntry.y--;
               if (direction === 'down') portalEntry.y++;
@@ -576,7 +440,7 @@
                 setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
               }
             } else {
-              // обычный шаг
+              // обычный ход
               playClick();
               setLeoPosition(nextPos);
               previousPos = nextPos;
@@ -759,14 +623,9 @@
         if (route.length === 0) return null;
         if (!showingRoute && screen !== 'results') return null;
 
-        const getCoords = (x, y) => ({
-          x: x * cellSize + cellSize / 2,
-          y: y * cellSize + cellSize / 2
-        });
-
-        const areNeighbors = (pos1, pos2) => {
-          const dx = Math.abs(pos1.x - pos2.x);
-          const dy = Math.abs(pos1.y - pos2.y);
+        const getCoords = (x, y) => ({ x: x * cellSize + cellSize / 2, y: y * cellSize + cellSize / 2 });
+        const areNeighbors = (a, b) => {
+          const dx = Math.abs(a.x - b.x); const dy = Math.abs(a.y - b.y);
           return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
         };
 
@@ -775,8 +634,7 @@
 
         const lines = [];
         for (let i = 0; i < pathPoints.length - 1; i++) {
-          const from = pathPoints[i];
-          const to = pathPoints[i + 1];
+          const from = pathPoints[i], to = pathPoints[i + 1];
           const fromCoords = getCoords(from.x, from.y);
           const toCoords = getCoords(to.x, to.y);
           const isNeighbor = areNeighbors(from, to);
@@ -788,12 +646,10 @@
             if (direction === 'down') portalEntry.y++;
             if (direction === 'left') portalEntry.x--;
             if (direction === 'right') portalEntry.x++;
-
             if (from.x !== portalEntry.x || from.y !== portalEntry.y) {
               const portalCoords = getCoords(portalEntry.x, portalEntry.y);
               lines.push({ from: fromCoords, to: portalCoords, color: '#FB923C', type: 'walk' });
             }
-
             const portalCoords = getCoords(portalEntry.x, portalEntry.y);
             lines.push({ from: portalCoords, to: toCoords, color: '#3B82F6', type: 'teleport' });
           } else {
@@ -810,21 +666,17 @@
             {lines.map((line, i) => (
               <line
                 key={`line-${i}`}
-                x1={line.from.x}
-                y1={line.from.y}
-                x2={line.to.x}
-                y2={line.to.y}
-                stroke={line.color}
-                strokeWidth="10"
-                strokeLinecap="round"
+                x1={line.from.x} y1={line.from.y}
+                x2={line.to.x} y2={line.to.y}
+                stroke={line.color} strokeWidth="10" strokeLinecap="round"
                 opacity={line.type === 'teleport' ? '0.7' : '0.9'}
                 strokeDasharray={line.type === 'teleport' ? '20 10' : 'none'}
                 className={line.type === 'teleport' ? 'teleport-line' : ''}
               />
             ))}
-            {pathPoints.map((point, i) => {
-              const coords = getCoords(point.x, point.y);
-              return <circle key={`point-${i}`} cx={coords.x} cy={coords.y} r="6" fill="#FCD34D" opacity="0.9" />;
+            {pathPoints.map((p, i) => {
+              const c = getCoords(p.x, p.y);
+              return <circle key={`point-${i}`} cx={c.x} cy={c.y} r="6" fill="#FCD34D" opacity="0.9" />;
             })}
           </svg>
         );
@@ -844,7 +696,7 @@
                 <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/></filter>
               </defs>
               <path d="M 20 35 L 60 35 L 60 15 L 90 50 L 60 85 L 60 65 L 20 65 Z"
-                    fill="url(#arrowGradient)" stroke="#1F2937" strokeWidth="4" strokeLinejoin="round" filter="url(#shadow)"/>
+                fill="url(#arrowGradient)" stroke="#1F2937" strokeWidth="4" strokeLinejoin="round" filter="url(#shadow)"/>
             </svg>
           );
         };
@@ -867,7 +719,6 @@
         );
       };
 
-      // === Экраны ===
       if (screen === 'settings') {
         return (
           <div className="min-h-screen">
