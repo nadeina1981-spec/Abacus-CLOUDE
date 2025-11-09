@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Лео в космосе</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      background: #EC8D00;
+      min-height: 100vh;
+    }
+    
+    /* Одноразовая пульсация при каждом новом ходе */
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.9;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    
+    /* Пульсация яркости для линий телепортации */
+    @keyframes teleportPulse {
+      0%, 100% {
+        opacity: 0.5;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+    
+    /* Бегущая анимация по штрих-пунктиру */
+    @keyframes dashMove {
+      0% {
+        stroke-dashoffset: 0;
+      }
+      100% {
+        stroke-dashoffset: 40;
+      }
+    }
+    
+    /* Класс для анимированных линий телепортации */
+    .teleport-line {
+      animation: teleportPulse 1.5s infinite ease-in-out, dashMove 2s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const LeoSpaceNavigator = () => {
+      // ВЕРСИЯ для кэш-бастинга звуковых файлов
+      // Увеличивай эту цифру каждый раз когда меняешь звуковые файлы!
+      const SOUND_VERSION = '2';
+      
+      const [screen, setScreen] = useState('settings');
+      const [settings, setSettings] = useState({
+        gridSize: 5,
+        steps: 10,
+        commandMode: 'voice+indicator',
+        portals: 0,
+        comets: 0,
+        startPosition: 'center',
+        commandSpeed: 1.8 // в секундах
+      });
+      
+      const [countdown, setCountdown] = useState(3);
+      const [route, setRoute] = useState([]);
+      const [currentStep, setCurrentStep] = useState(0);
+      const [leoPosition, setLeoPosition] = useState({ x: 0, y: 0 });
+      const [routeStartPosition, setRouteStartPosition] = useState({ x: 0, y: 0 }); // Запоминаем стартовую позицию маршрута
+      const [playerGuess, setPlayerGuess] = useState(null);
+      const [isCorrect, setIsCorrect] = useState(null);
+      const [showingRoute, setShowingRoute] = useState(false);
+      const [currentDirection, setCurrentDirection] = useState(null);
+      const [portalsPositions, setPortalsPositions] = useState([]);
+      const [cometsPositions, setCometsPositions] = useState([]);
+      const [message, setMessage] = useState('');
+      const [language, setLanguage] = useState('ru');
+      const [gameStarted, setGameStarted] = useState(false);
+      const [cometGuessMode, setCometGuessMode] = useState(false);
+      const [cometGuess, setCometGuess] = useState(null);
+      const [showComets, setShowComets] = useState(true);
+      
+      const routeIntervalRef = useRef(null);
+      const audioCache = useRef({});
+
+      // НАСТРОЙКА ПУТЕЙ К ФАЙЛАМ
+      // Измените форматы по необходимости: .png, .jpg, .gif, .webp
+      const IMAGES = {
+        leo: './images/leo.png',
+        logo: './images/logo.png',
+        comet: './images/comet.png',
+        background: './images/background.jpg',
+        portals: [
+          './images/moon.gif',
+          './images/sun.gif',
+          './images/pluton.gif',
+          './images/jupiter.gif'
+        ]
+      };
+
+      const translations = {
+        ua: {
+          title: 'Лео в космосі',
+          settings: 'Налаштування гри',
+          gridSize: 'Розмір поля:',
+          steps: 'Кількість кроків:',
+          commandMode: 'Режим команд:',
+          voice: 'Голос',
+          voiceIndicator: 'Голос + Вказівник',
+          indicator: 'Вказівник',
+          portals: 'Портали:',
+          comets: 'Комети:',
+          startPosition: 'Стартова позиція:',
+          center: 'Центр',
+          random: 'Випадкова',
+          startGame: 'Почати гру',
+          confirm: 'Підтвердити',
+          backToSettings: 'Повернутись в налаштування',
+          start: 'Старт',
+          correct: 'Вірно!',
+          incorrect: 'Невірно, спробуй ще.',
+          whereLeo: 'Де Лео?',
+          wellDone: 'Молодець!',
+          exit: 'Вихід',
+          repeatRound: 'Повторити раунд',
+          nextRound: 'Наступний раунд',
+          listening: 'Слухай команди...',
+          clickWhere: 'Натисни на клітинку, де Лео!',
+          settingsSummary: 'Підтвердження налаштувань',
+          up: 'Вгору',
+          down: 'Вниз',
+          left: 'Ліворуч',
+          right: 'Праворуч',
+          whereCometWas: 'Де була комета?',
+          cometCorrect: 'Правильно! Комета була тут!',
+          cometIncorrect: 'Невірно, спробуй ще.',
+          commandSpeed: 'Швидкість команд:'
+        },
+        en: {
+          title: 'Leo in Space',
+          settings: 'Game Settings',
+          gridSize: 'Grid Size:',
+          steps: 'Number of Steps:',
+          commandMode: 'Command Mode:',
+          voice: 'Voice',
+          voiceIndicator: 'Voice + Indicator',
+          indicator: 'Indicator',
+          portals: 'Portals:',
+          comets: 'Comets:',
+          startPosition: 'Start Position:',
+          center: 'Center',
+          random: 'Random',
+          startGame: 'Start Game',
+          confirm: 'Confirm',
+          backToSettings: 'Back to Settings',
+          start: 'Start',
+          correct: 'Correct!',
+          incorrect: 'Incorrect, try again.',
+          whereLeo: 'Where is Leo?',
+          wellDone: 'Well Done!',
+          exit: 'Exit',
+          repeatRound: 'Repeat Round',
+          nextRound: 'Next Round',
+          listening: 'Listen to commands...',
+          clickWhere: 'Click where Leo is!',
+          settingsSummary: 'Confirm Settings',
+          up: 'Up',
+          down: 'Down',
+          left: 'Left',
+          right: 'Right',
+          whereCometWas: 'Where was the comet?',
+          cometCorrect: 'Correct! The comet was here!',
+          cometIncorrect: 'Incorrect, try again.',
+          commandSpeed: 'Command Speed:'
+        },
+        ru: {
+          title: 'Лео в космосе',
+          settings: 'Настройки игры',
+          gridSize: 'Размер поля:',
+          steps: 'Количество шагов:',
+          commandMode: 'Режим команд:',
+          voice: 'Голос',
+          voiceIndicator: 'Голос + Указатель',
+          indicator: 'Указатель',
+          portals: 'Порталы:',
+          comets: 'Кометы:',
+          startPosition: 'Стартовая позиция:',
+          center: 'Центр',
+          random: 'Случайная',
+          startGame: 'Начать игру',
+          confirm: 'Подтвердить',
+          backToSettings: 'Вернуться в настройки',
+          start: 'Старт',
+          correct: 'Верно!',
+          incorrect: 'Неверно, попробуй ещё.',
+          whereLeo: 'Где Лео?',
+          wellDone: 'Молодец!',
+          exit: 'Выход',
+          repeatRound: 'Повторить раунд',
+          nextRound: 'Следующий раунд',
+          listening: 'Слушай команды...',
+          clickWhere: 'Нажми на клетку, где Лео!',
+          settingsSummary: 'Подтверждение настроек',
+          up: 'Вверх',
+          down: 'Вниз',
+          left: 'Влево',
+          right: 'Вправо',
+          whereCometWas: 'Где была комета?',
+          cometCorrect: 'Правильно! Комета была здесь!',
+          cometIncorrect: 'Неверно, попробуй ещё.',
+          commandSpeed: 'Скорость команд:'
+        },
+        es: {
+          title: 'Leo en el espacio',
+          settings: 'Configuración del juego',
+          gridSize: 'Tamaño del campo:',
+          steps: 'Número de pasos:',
+          commandMode: 'Modo de comandos:',
+          voice: 'Voz',
+          voiceIndicator: 'Voz + Indicador',
+          indicator: 'Indicador',
+          portals: 'Portales:',
+          comets: 'Cometas:',
+          startPosition: 'Posición inicial:',
+          center: 'Centro',
+          random: 'Aleatorio',
+          startGame: 'Comenzar juego',
+          confirm: 'Confirmar',
+          backToSettings: 'Volver a configuración',
+          start: 'Inicio',
+          correct: '¡Correcto!',
+          incorrect: 'Incorrecto, inténtalo de nuevo.',
+          whereLeo: '¿Dónde está Leo?',
+          wellDone: '¡Bien hecho!',
+          exit: 'Salir',
+          repeatRound: 'Repetir ronda',
+          nextRound: 'Siguiente ronda',
+          listening: 'Escucha los comandos...',
+          clickWhere: '¡Haz clic donde está Leo!',
+          settingsSummary: 'Confirmar configuración',
+          up: 'Arriba',
+          down: 'Abajo',
+          left: 'Izquierda',
+          right: 'Derecha',
+          whereCometWas: '¿Dónde estaba el cometa?',
+          cometCorrect: '¡Correcto! ¡El cometa estaba aquí!',
+          cometIncorrect: 'Incorrecto, inténtalo de nuevo.',
+          commandSpeed: 'Velocidad de comandos:'
+        }
+      };
+
+      const t = translations[language];
+
+      const playSound = async (soundName) => {
+        // Добавляем версию к URL чтобы браузер не использовал старый кэш
+        const soundPath = `./sounds/${language}/${soundName}.mp3?v=${SOUND_VERSION}`;
+        
+        try {
+          if (!audioCache.current[soundPath]) {
+            const audio = new Audio(soundPath);
+            audio.preload = 'auto';
+            audioCache.current[soundPath] = audio;
+          }
+          
+          const audio = audioCache.current[soundPath];
+          audio.currentTime = 0;
+          
+          // Используем Promise для более надежного воспроизведения
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.log('Ошибка воспроизведения:', error);
+              speak(t[soundName] || soundName);
+            });
+          }
+        } catch (error) {
+          console.log('Ошибка загрузки звука:', error);
+          speak(t[soundName] || soundName);
+        }
+      };
+
+      const speak = (text) => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          const langCodes = { ua: 'uk-UA', en: 'en-US', ru: 'ru-RU', es: 'es-ES' };
+          utterance.lang = langCodes[language];
+          utterance.rate = 0.9;
+          window.speechSynthesis.speak(utterance);
+        }
+      };
+
+      const generateRoute = () => {
+        const { gridSize, steps, startPosition, portals, comets } = settings;
+        const center = Math.floor(gridSize / 2);
+        const start = startPosition === 'center' 
+          ? { x: center, y: center }
+          : { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+        
+        setLeoPosition(start);
+        setRouteStartPosition(start); // Запоминаем стартовую позицию
+        
+        const newPortals = [];
+        for (let i = 0; i < portals; i++) {
+          let portal1, portal2;
+          do {
+            portal1 = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+            portal2 = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+          } while (
+            (portal1.x === start.x && portal1.y === start.y) ||
+            (portal2.x === start.x && portal2.y === start.y) ||
+            (portal1.x === portal2.x && portal1.y === portal2.y) ||
+            newPortals.some(p => 
+              (p.pos1.x === portal1.x && p.pos1.y === portal1.y) ||
+              (p.pos2.x === portal1.x && p.pos2.y === portal1.y) ||
+              (p.pos1.x === portal2.x && p.pos1.y === portal2.y) ||
+              (p.pos2.x === portal2.x && p.pos2.y === portal2.y)
+            )
+          );
+          newPortals.push({ pos1: portal1, pos2: portal2, image: IMAGES.portals[i % IMAGES.portals.length] });
+        }
+        setPortalsPositions(newPortals);
+        
+        const newComets = [];
+        for (let i = 0; i < comets; i++) {
+          let cometPos;
+          do {
+            cometPos = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+          } while (
+            (cometPos.x === start.x && cometPos.y === start.y) ||
+            newComets.some(c => c.x === cometPos.x && c.y === cometPos.y) ||
+            newPortals.some(p => (p.pos1.x === cometPos.x && p.pos1.y === cometPos.y) || (p.pos2.x === cometPos.x && p.pos2.y === cometPos.y))
+          );
+          newComets.push(cometPos);
+        }
+        setCometsPositions(newComets);
+        
+        const newRoute = [];
+        let currentPos = { x: start.x, y: start.y };
+        let lastDirection = null; // Последнее направление
+        const visitedRecently = []; // История посещенных клеток (последние 10 шагов)
+        const maxHistorySize = 10; // Размер истории
+        
+        // Функция для получения противоположного направления
+        const getOpposite = (dir) => {
+          const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+          return opposites[dir];
+        };
+        
+        // Функция проверки: была ли клетка недавно посещена
+        const wasRecentlyVisited = (x, y) => {
+          return visitedRecently.some(pos => pos.x === x && pos.y === y);
+        };
+        
+        for (let i = 0; i < steps; i++) {
+          // Добавляем текущую позицию в историю
+          visitedRecently.push({ x: currentPos.x, y: currentPos.y });
+          if (visitedRecently.length > maxHistorySize) {
+            visitedRecently.shift(); // Удаляем самую старую
+          }
+          
+          // Собираем все возможные направления
+          const allDirections = [];
+          if (currentPos.y > 0) allDirections.push('up');
+          if (currentPos.y < gridSize - 1) allDirections.push('down');
+          if (currentPos.x > 0) allDirections.push('left');
+          if (currentPos.x < gridSize - 1) allDirections.push('right');
+          
+          if (allDirections.length === 0) break;
+          
+          // Фильтруем направления с весами
+          const weightedDirections = [];
+          
+          for (const dir of allDirections) {
+            // Вычисляем новую позицию для этого направления
+            let testX = currentPos.x, testY = currentPos.y;
+            switch (dir) {
+              case 'up': testY--; break;
+              case 'down': testY++; break;
+              case 'left': testX--; break;
+              case 'right': testX++; break;
+            }
+            
+            // Базовый вес = 1
+            let weight = 1;
+            
+            // 1. Запрет возврата назад (противоположное направление)
+            if (lastDirection && dir === getOpposite(lastDirection)) {
+              continue; // Полностью исключаем это направление
+            }
+            
+            // 2. Поощрение движения в том же направлении (50% шанс)
+            if (lastDirection && dir === lastDirection) {
+              weight = 2; // В 2 раза больше шанс продолжить в том же направлении (≈50%)
+            }
+            
+            // 3. Избегаем недавно посещенных клеток
+            if (wasRecentlyVisited(testX, testY)) {
+              weight = 0.1; // Очень низкий вес, но не ноль (если нет других вариантов)
+            }
+            
+            // 4. Учитываем близость к краям - отталкиваемся от краев
+            const distanceFromEdges = Math.min(
+              testX, 
+              testY, 
+              gridSize - 1 - testX, 
+              gridSize - 1 - testY
+            );
+            // Если близко к краю (расстояние 0-1), уменьшаем вес
+            if (distanceFromEdges <= 1) {
+              weight *= 0.3;
+            }
+            // Если в центральной зоне, немного увеличиваем вес
+            else if (distanceFromEdges >= gridSize / 3) {
+              weight *= 1.2;
+            }
+            
+            // Добавляем направление с его весом
+            weightedDirections.push({ direction: dir, weight: weight });
+          }
+          
+          // Если нет доступных направлений (очень редкий случай), берем любое
+          if (weightedDirections.length === 0) {
+            if (allDirections.length > 0) {
+              weightedDirections.push({ direction: allDirections[0], weight: 1 });
+            } else {
+              break;
+            }
+          }
+          
+          // Выбираем направление с учетом весов
+          const totalWeight = weightedDirections.reduce((sum, item) => sum + item.weight, 0);
+          let random = Math.random() * totalWeight;
+          let selectedDirection = weightedDirections[0].direction;
+          
+          for (const item of weightedDirections) {
+            random -= item.weight;
+            if (random <= 0) {
+              selectedDirection = item.direction;
+              break;
+            }
+          }
+          
+          // Применяем выбранное направление
+          let newX = currentPos.x, newY = currentPos.y;
+          switch (selectedDirection) {
+            case 'up': newY--; break;
+            case 'down': newY++; break;
+            case 'left': newX--; break;
+            case 'right': newX++; break;
+          }
+          
+          if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) break;
+          currentPos = { x: newX, y: newY };
+          lastDirection = selectedDirection; // Запоминаем направление
+          
+          const portal = newPortals.find(p => 
+            (p.pos1.x === currentPos.x && p.pos1.y === currentPos.y) ||
+            (p.pos2.x === currentPos.x && p.pos2.y === currentPos.y)
+          );
+          
+          if (portal) {
+            currentPos = portal.pos1.x === currentPos.x && portal.pos1.y === currentPos.y 
+              ? { x: portal.pos2.x, y: portal.pos2.y }
+              : { x: portal.pos1.x, y: portal.pos1.y };
+            lastDirection = null; // Сбрасываем направление после портала
+          }
+          
+          if (currentPos.x < 0 || currentPos.x >= gridSize || currentPos.y < 0 || currentPos.y >= gridSize) break;
+          newRoute.push({ direction: selectedDirection, position: { x: currentPos.x, y: currentPos.y } });
+        }
+        
+        setRoute(newRoute);
+      };
+
+      const startGame = () => setScreen('confirm');
+      const confirmSettings = () => { 
+        generateRoute(); 
+        
+        // Предзагружаем все необходимые звуки с версией для кэш-бастинга
+        const soundsToPreload = ['3', '2', '1', 'start', 'up', 'down', 'left', 'right'];
+        soundsToPreload.forEach(sound => {
+          const soundPath = `./sounds/${language}/${sound}.mp3?v=${SOUND_VERSION}`;
+          if (!audioCache.current[soundPath]) {
+            const audio = new Audio(soundPath);
+            audio.preload = 'auto';
+            audio.load();
+            audioCache.current[soundPath] = audio;
+          }
+        });
+        
+        setScreen('countdown'); 
+        setCountdown(3); 
+        setGameStarted(true); 
+      };
+
+      useEffect(() => {
+        if (screen === 'countdown' && gameStarted) {
+          if (countdown > 0) {
+            // Звук воспроизводится синхронно с отображением цифры
+            playSound(countdown.toString());
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
+          } else {
+            // Для "Старт" также синхронно
+            playSound('start');
+            setTimeout(() => {
+              setScreen('game');
+              setCurrentStep(0);
+              setTimeout(() => { routeIntervalRef.current = playRoute(); }, 500);
+            }, 1000);
+          }
+        }
+      }, [screen, countdown, gameStarted]);
+
+      const playRoute = () => {
+        let step = 0;
+        const intervalTime = settings.commandSpeed * 1000; // Преобразуем секунды в миллисекунды
+        
+        const interval = setInterval(() => {
+          if (step < route.length) {
+            setCurrentDirection(route[step].direction);
+            if (settings.commandMode === 'voice' || settings.commandMode === 'voice+indicator') {
+              playSound(route[step].direction);
+            }
+            step++;
+            setCurrentStep(step);
+          } else {
+            clearInterval(interval);
+            routeIntervalRef.current = null;
+            setCurrentDirection(null);
+            
+            // Скрываем кометы если они есть (СРАЗУ после окончания команд)
+            if (cometsPositions.length > 0) {
+              setShowComets(false);
+            }
+            
+            setMessage(t.whereLeo);
+          }
+        }, intervalTime);
+        return interval;
+      };
+
+      const checkAnswer = (x, y) => {
+        if (showingRoute) return;
+        if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        
+        setPlayerGuess({ x, y });
+        const finalPos = route[route.length - 1].position;
+        
+        if (x === finalPos.x && y === finalPos.y) {
+          setIsCorrect(true);
+          setMessage(t.correct);
+          setTimeout(() => { setMessage(''); showLeoRoute(); }, 1500);
+        } else {
+          setIsCorrect(false);
+          setMessage(t.incorrect);
+        }
+      };
+
+      const showLeoRoute = () => {
+        if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
+        setShowingRoute(true);
+        const start = routeStartPosition; // Используем сохраненную стартовую позицию
+        setLeoPosition(start);
+        
+        // Функция проверки: соседние ли клетки
+        const areNeighbors = (pos1, pos2) => {
+          const dx = Math.abs(pos1.x - pos2.x);
+          const dy = Math.abs(pos1.y - pos2.y);
+          return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+        };
+        
+        let step = 0;
+        let previousPos = start;
+        
+        const moveToNextPosition = () => {
+          if (step < route.length) {
+            const nextPos = route[step].position;
+            const direction = route[step].direction;
+            
+            // Проверяем: телепортация или обычный ход?
+            if (!areNeighbors(previousPos, nextPos)) {
+              // Это телепортация!
+              // Вычисляем позицию входного портала
+              let portalEntry = { ...previousPos };
+              switch (direction) {
+                case 'up': portalEntry.y--; break;
+                case 'down': portalEntry.y++; break;
+                case 'left': portalEntry.x--; break;
+                case 'right': portalEntry.x++; break;
+              }
+              
+              // Шаг 1: Двигаемся НА портал (если не уже на нем)
+              if (previousPos.x !== portalEntry.x || previousPos.y !== portalEntry.y) {
+                playSound('1'); // Звук клика
+                setLeoPosition(portalEntry);
+                
+                // Шаг 2: Через короткую задержку телепортируемся
+                setTimeout(() => {
+                  playSound('1'); // Звук клика для телепортации
+                  setLeoPosition(nextPos);
+                  previousPos = nextPos;
+                  step++;
+                  setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
+                }, settings.commandSpeed * 1000);
+              } else {
+                // Уже на портале, просто телепортируемся
+                playSound('1'); // Звук клика
+                setLeoPosition(nextPos);
+                previousPos = nextPos;
+                step++;
+                setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
+              }
+            } else {
+              // Обычный ход
+              playSound('1'); // Звук клика
+              setLeoPosition(nextPos);
+              previousPos = nextPos;
+              step++;
+              setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
+            }
+          } else {
+            setShowingRoute(false);
+            
+            // Проверяем, есть ли кометы
+            if (cometsPositions.length > 0) {
+              // Кометы уже скрыты, переходим в режим угадывания
+              setCometGuessMode(true);
+              setMessage(t.whereCometWas);
+            } else {
+              // Если комет нет, сразу переходим к результатам
+              setScreen('results');
+            }
+          }
+        };
+        
+        // Запускаем первое движение
+        setTimeout(moveToNextPosition, settings.commandSpeed * 1000);
+      };
+
+      const checkCometAnswer = (x, y) => {
+        // Очищаем предыдущую попытку
+        setCometGuess(null);
+        
+        // Небольшая задержка для визуального эффекта
+        setTimeout(() => {
+          setCometGuess({ x, y });
+          
+          // Проверяем есть ли комета на этой позиции
+          let isCometHere = false;
+          for (let i = 0; i < cometsPositions.length; i++) {
+            if (cometsPositions[i].x === x && cometsPositions[i].y === y) {
+              isCometHere = true;
+              break;
+            }
+          }
+          
+          if (isCometHere) {
+            setMessage(t.cometCorrect);
+            setShowComets(true); // Показываем комету обратно
+            setTimeout(() => {
+              setCometGuessMode(false);
+              setCometGuess(null);
+              setMessage('');
+              setScreen('results');
+            }, 2000);
+          } else {
+            setMessage(t.cometIncorrect);
+            // Через секунду очищаем неправильную попытку
+            setTimeout(() => {
+              setCometGuess(null);
+              setMessage(t.whereCometWas);
+            }, 1000);
+          }
+        }, 10);
+      };
+
+      const repeatRound = () => {
+        if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setScreen('game'); 
+        setCurrentStep(0); 
+        setPlayerGuess(null); 
+        setIsCorrect(null); 
+        setMessage(''); 
+        setCurrentDirection(null);
+        setCometGuessMode(false);
+        setCometGuess(null);
+        setShowComets(true); // Показываем кометы обратно
+        setLeoPosition(routeStartPosition); // Используем сохраненную стартовую позицию
+        setTimeout(() => { routeIntervalRef.current = playRoute(); }, 500);
+      };
+
+      const nextRound = () => { 
+        setPlayerGuess(null);
+        setCometGuess(null);
+        setCometGuessMode(false);
+        setShowComets(true);
+        setGameStarted(false); 
+        startGame(); 
+      };
+
+      const exitGame = () => {
+        if (routeIntervalRef.current) { clearInterval(routeIntervalRef.current); routeIntervalRef.current = null; }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setScreen('settings'); 
+        setRoute([]); 
+        setCurrentStep(0); 
+        setPlayerGuess(null); 
+        setIsCorrect(null); 
+        setMessage(''); 
+        setCurrentDirection(null); 
+        setGameStarted(false);
+        setCometGuessMode(false);
+        setCometGuess(null);
+        setShowComets(true);
+      };
+
+      const Header = () => (
+        <div className="px-3 py-2.5 shadow-lg" style={{ background: 'linear-gradient(180deg, #EC8D00 0%, #E8654B 100%)' }}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between" style={{ paddingLeft: '30px', paddingRight: '30px' }}>
+            <div className="w-14 h-14 md:w-16 md:h-16 flex-shrink-0">
+              <img src={IMAGES.logo} alt="Logo" className="w-full h-full object-contain" />
+            </div>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg text-center absolute left-1/2 transform -translate-x-1/2 px-2">{t.title}</h1>
+            <div className="rounded-full flex gap-1.5" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.9)', padding: '3px' }}>
+              {['UA', 'EN', 'RU', 'ES'].map(lang => (
+                <button 
+                  key={lang} 
+                  onClick={() => setLanguage(lang.toLowerCase())}
+                  style={{
+                    border: 0,
+                    background: language === lang.toLowerCase() ? '#fff' : 'transparent',
+                    color: language === lang.toLowerCase() ? '#EC8D00' : '#fff',
+                    padding: '6px 10px',
+                    borderRadius: '999px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    boxShadow: language === lang.toLowerCase() ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+
+      const renderGrid = () => {
+        const cells = [];
+        const maxSize = Math.min(600, window.innerWidth * 0.95, window.innerHeight * 0.7);
+        const cellSize = maxSize / settings.gridSize;
+        let cellNumber = 1;
+        
+        for (let y = 0; y < settings.gridSize; y++) {
+          for (let x = 0; x < settings.gridSize; x++) {
+            const isLeo = leoPosition.x === x && leoPosition.y === y;
+            const portal = portalsPositions.find(p => (p.pos1.x === x && p.pos1.y === y) || (p.pos2.x === x && p.pos2.y === y));
+            const isComet = cometsPositions.some(c => c.x === x && c.y === y);
+            const isPlayerGuess = playerGuess && playerGuess.x === x && playerGuess.y === y;
+            const isCometGuess = cometGuess && cometGuess.x === x && cometGuess.y === y;
+            const numberFontSize = Math.max(12, cellSize * 0.3);
+            const imageSize = Math.max(30, cellSize * 0.7);
+            
+            cells.push(
+              <div key={`${x}-${y}`} 
+                onClick={() => {
+                  if (cometGuessMode) {
+                    checkCometAnswer(x, y);
+                  } else if (screen === 'game' && !showingRoute && currentStep === route.length) {
+                    checkAnswer(x, y);
+                  }
+                }}
+                className={`relative border border-blue-300/30 transition-all ${
+                  cometGuessMode || (screen === 'game' && currentStep === route.length && !cometGuessMode && !showingRoute) ? 'cursor-pointer hover:bg-blue-100/20' : ''
+                } ${isPlayerGuess && !cometGuessMode ? (isCorrect ? 'bg-green-300/40' : 'bg-red-300/40') : ''} ${
+                  isCometGuess && cometGuessMode ? (isComet ? 'bg-green-300/40' : 'bg-red-300/40') : ''
+                }`}
+                style={{ width: cellSize, height: cellSize }}>
+                <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold pointer-events-none"
+                  style={{ fontSize: `${numberFontSize}px` }}>{cellNumber++}</div>
+                {portal && <div className="absolute inset-0 flex items-center justify-center">
+                  <img src={portal.image} alt="Portal" className="animate-spin" style={{ width: `${imageSize}px`, height: `${imageSize}px`, animationDuration: '4s' }} />
+                </div>}
+                {isComet && showComets && <div className="absolute inset-0 flex items-center justify-center">
+                  <img src={IMAGES.comet} alt="Comet" className="animate-pulse" style={{ width: `${imageSize}px`, height: `${imageSize}px` }} />
+                </div>}
+                {isLeo && <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <img src={IMAGES.leo} alt="Leo" className="transition-all duration-300" style={{ width: `${imageSize}px`, height: `${imageSize}px` }} />
+                </div>}
+              </div>
+            );
+          }
+        }
+        
+        return (
+          <div className="relative mx-auto" style={{ width: maxSize, height: maxSize }}>
+            <div className="grid relative" style={{ gridTemplateColumns: `repeat(${settings.gridSize}, 1fr)`, width: maxSize, height: maxSize, zIndex: 1 }}>
+              {cells}
+            </div>
+            <PathOverlay maxSize={maxSize} cellSize={cellSize} />
+          </div>
+        );
+      };
+
+      // Компонент для отрисовки космического пути Лео
+      const PathOverlay = ({ maxSize, cellSize }) => {
+        // Показываем путь ТОЛЬКО при показе маршрута или на экране результатов
+        if (route.length === 0) return null;
+        if (!showingRoute && screen !== 'results') return null;
+        
+        console.log('PathOverlay рендерится!', { showingRoute, screen, routeLength: route.length });
+        
+        // Рассчитываем координаты центров клеток
+        const getCoords = (x, y) => ({
+          x: x * cellSize + cellSize / 2,
+          y: y * cellSize + cellSize / 2
+        });
+        
+        // Проверка: соседние ли клетки
+        const areNeighbors = (pos1, pos2) => {
+          const dx = Math.abs(pos1.x - pos2.x);
+          const dy = Math.abs(pos1.y - pos2.y);
+          return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+        };
+        
+        // Используем сохраненную стартовую позицию маршрута
+        const startPos = routeStartPosition;
+        
+        // Собираем все точки пути
+        const pathPoints = [startPos, ...route.map(step => step.position)];
+        
+        console.log('PathPoints:', pathPoints);
+        
+        // Создаем простые линии между всеми точками
+        const lines = [];
+        for (let i = 0; i < pathPoints.length - 1; i++) {
+          const from = pathPoints[i];
+          const to = pathPoints[i + 1];
+          const fromCoords = getCoords(from.x, from.y);
+          const toCoords = getCoords(to.x, to.y);
+          const isNeighbor = areNeighbors(from, to);
+          
+          if (!isNeighbor) {
+            // Телепортация - находим портал входа
+            const direction = route[i] ? route[i].direction : null;
+            let portalEntry = { ...from };
+            
+            if (direction) {
+              switch (direction) {
+                case 'up': portalEntry.y--; break;
+                case 'down': portalEntry.y++; break;
+                case 'left': portalEntry.x--; break;
+                case 'right': portalEntry.x++; break;
+              }
+              
+              // Линия до портала
+              if (from.x !== portalEntry.x || from.y !== portalEntry.y) {
+                const portalCoords = getCoords(portalEntry.x, portalEntry.y);
+                lines.push({
+                  from: fromCoords,
+                  to: portalCoords,
+                  color: '#FB923C',
+                  type: 'walk'
+                });
+              }
+              
+              // Линия телепортации
+              const portalCoords = getCoords(portalEntry.x, portalEntry.y);
+              lines.push({
+                from: portalCoords,
+                to: toCoords,
+                color: '#3B82F6',
+                type: 'teleport'
+              });
+            }
+          } else {
+            // Обычный ход
+            lines.push({
+              from: fromCoords,
+              to: toCoords,
+              color: '#FB923C',
+              type: 'walk'
+            });
+          }
+        }
+        
+        console.log('Lines to draw:', lines.length, lines);
+        
+        return (
+          <svg 
+            className="absolute inset-0"
+            style={{ 
+              width: maxSize, 
+              height: maxSize, 
+              zIndex: 100,
+              pointerEvents: 'none',
+              top: 0,
+              left: 0
+            }}
+            viewBox={`0 0 ${maxSize} ${maxSize}`}
+          >
+            {/* Рисуем все линии */}
+            {lines.map((line, i) => (
+              <line
+                key={`line-${i}`}
+                x1={line.from.x}
+                y1={line.from.y}
+                x2={line.to.x}
+                y2={line.to.y}
+                stroke={line.color}
+                strokeWidth="10"
+                strokeLinecap="round"
+                opacity={line.type === 'teleport' ? '0.7' : '0.9'}
+                strokeDasharray={line.type === 'teleport' ? '20 10' : 'none'}
+                className={line.type === 'teleport' ? 'teleport-line' : ''}
+              />
+            ))}
+            
+            {/* Точки на всех позициях для отладки */}
+            {pathPoints.map((point, i) => {
+              const coords = getCoords(point.x, point.y);
+              return (
+                <circle
+                  key={`point-${i}`}
+                  cx={coords.x}
+                  cy={coords.y}
+                  r="6"
+                  fill="#FCD34D"
+                  opacity="0.9"
+                />
+              );
+            })}
+          </svg>
+        );
+      };
+
+      const DirectionIndicator = () => {
+        const boxSize = 100;
+        
+        // SVG-стрелки с красивым дизайном
+        const ArrowSVG = ({ direction }) => {
+          const rotations = { up: 270, down: 90, left: 180, right: 0 };
+          
+          return (
+            <svg 
+              width={boxSize * 0.75} 
+              height={boxSize * 0.75} 
+              viewBox="0 0 100 100" 
+              style={{ transform: `rotate(${rotations[direction]}deg)` }}
+            >
+              <defs>
+                <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" style={{ stopColor: '#F97316', stopOpacity: 1 }} />
+                  <stop offset="100%" style={{ stopColor: '#FB923C', stopOpacity: 1 }} />
+                </linearGradient>
+                <filter id="shadow">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
+                </filter>
+              </defs>
+              {/* Основная стрелка */}
+              <path 
+                d="M 20 35 L 60 35 L 60 15 L 90 50 L 60 85 L 60 65 L 20 65 Z" 
+                fill="url(#arrowGradient)"
+                stroke="#1F2937"
+                strokeWidth="4"
+                strokeLinejoin="round"
+                filter="url(#shadow)"
+              />
+            </svg>
+          );
+        };
+        
+        return (
+          <div className="flex items-end justify-center" style={{ minHeight: 120 }}>
+            {currentDirection && settings.commandMode !== 'voice' ? (
+              <div 
+                key={currentDirection + currentStep}
+                className="bg-gradient-to-br from-amber-50 to-orange-100 backdrop-blur-sm rounded-2xl shadow-2xl border-4 border-orange-400 flex items-center justify-center overflow-hidden"
+                style={{ 
+                  width: `${boxSize}px`, 
+                  height: `${boxSize}px`, 
+                  minWidth: `${boxSize}px`, 
+                  minHeight: `${boxSize}px`, 
+                  padding: 0,
+                  animation: 'pulse 0.5s ease-in-out'
+                }}>
+                <ArrowSVG direction={currentDirection} />
+              </div>
+            ) : message ? (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl shadow-2xl px-6 py-4 animate-bounce flex items-center justify-center max-w-md border-2 border-orange-300">
+                <p className="text-orange-600 text-center font-bold text-2xl md:text-3xl">{message}</p>
+              </div>
+            ) : null}
+          </div>
+        );
+      };
+
+      if (screen === 'settings') {
+        return (
+          <div className="min-h-screen">
+            <Header />
+            <div className="p-4 md:p-8">
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border-4 border-orange-300">
+                  <h2 className="text-xl sm:text-2xl font-bold text-orange-600 mb-4">{t.settings}</h2>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.gridSize} {settings.gridSize}×{settings.gridSize}</label>
+                    <input type="range" min="3" max="15" value={settings.gridSize} onChange={(e) => setSettings({...settings, gridSize: parseInt(e.target.value)})}
+                      className="w-full h-2 sm:h-3 bg-orange-200 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.steps} {settings.steps}</label>
+                    <input type="range" min="3" max="100" value={settings.steps} onChange={(e) => setSettings({...settings, steps: parseInt(e.target.value)})}
+                      className="w-full h-2 sm:h-3 bg-orange-200 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.commandMode}</label>
+                    <select value={settings.commandMode} onChange={(e) => setSettings({...settings, commandMode: e.target.value})}
+                      className="w-full p-2 sm:p-3 text-sm sm:text-base border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:outline-none bg-white">
+                      <option value="voice">{t.voice}</option>
+                      <option value="voice+indicator">{t.voiceIndicator}</option>
+                      <option value="indicator">{t.indicator}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.commandSpeed} {settings.commandSpeed}s</label>
+                    <select value={settings.commandSpeed} onChange={(e) => setSettings({...settings, commandSpeed: parseFloat(e.target.value)})}
+                      className="w-full p-2 sm:p-3 text-sm sm:text-base border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:outline-none bg-white">
+                      <option value="0.5">0.5s</option>
+                      <option value="0.7">0.7s</option>
+                      <option value="1">1.0s</option>
+                      <option value="1.2">1.2s</option>
+                      <option value="1.5">1.5s</option>
+                      <option value="1.7">1.7s</option>
+                      <option value="1.8">1.8s (по умолчанию)</option>
+                      <option value="2">2.0s</option>
+                      <option value="2.5">2.5s</option>
+                      <option value="3">3.0s</option>
+                      <option value="3.5">3.5s</option>
+                      <option value="4">4.0s</option>
+                      <option value="4.5">4.5s</option>
+                      <option value="5">5.0s</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.portals} {settings.portals}</label>
+                    <input type="range" min="0" max="4" value={settings.portals} onChange={(e) => setSettings({...settings, portals: parseInt(e.target.value)})}
+                      className="w-full h-2 sm:h-3 bg-orange-200 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.comets} {settings.comets}</label>
+                    <input type="range" min="0" max="3" value={settings.comets} onChange={(e) => setSettings({...settings, comets: parseInt(e.target.value)})}
+                      className="w-full h-2 sm:h-3 bg-orange-200 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm sm:text-base">{t.startPosition}</label>
+                    <select value={settings.startPosition} onChange={(e) => setSettings({...settings, startPosition: e.target.value})}
+                      className="w-full p-2 sm:p-3 text-sm sm:text-base border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:outline-none bg-white">
+                      <option value="center">{t.center}</option>
+                      <option value="random">{t.random}</option>
+                    </select>
+                  </div>
+                  <button onClick={startGame} className="w-full py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white text-lg sm:text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-2 border-orange-600">{t.startGame}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (screen === 'confirm') {
+        return (
+          <div className="min-h-screen">
+            <Header />
+            <div className="p-4 md:p-8">
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border-4 border-orange-300">
+                  <h2 className="text-xl sm:text-2xl font-bold text-orange-600 mb-4">{t.settingsSummary}</h2>
+                  <div className="space-y-2 sm:space-y-3 text-gray-700">
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.gridSize}</strong> {settings.gridSize}×{settings.gridSize}</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.steps}</strong> {settings.steps}</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.commandMode}</strong> {settings.commandMode === 'voice' ? t.voice : settings.commandMode === 'voice+indicator' ? t.voiceIndicator : t.indicator}</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.commandSpeed}</strong> {settings.commandSpeed}s</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.portals}</strong> {settings.portals}</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.comets}</strong> {settings.comets}</p>
+                    <p className="text-sm sm:text-base md:text-lg"><strong>{t.startPosition}</strong> {settings.startPosition === 'center' ? t.center : t.random}</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <button onClick={() => setScreen('settings')} className="flex-1 py-3 sm:py-4 bg-gray-400 text-white text-base sm:text-lg md:text-xl font-bold rounded-xl shadow-lg hover:bg-gray-500 transition-all border-2 border-gray-500">{t.backToSettings}</button>
+                    <button onClick={confirmSettings} className="flex-1 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white text-base sm:text-lg md:text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-2 border-green-700">{t.confirm}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (screen === 'countdown') {
+        return (
+          <div className="min-h-screen">
+            <Header />
+            <div className="p-2 sm:p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex justify-end mb-2">
+                  <button onClick={exitGame} className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-gradient-to-br from-amber-50 to-orange-100 rounded-full text-orange-600 font-semibold shadow-lg hover:shadow-xl border-2 border-orange-300 transition-all">{t.exit}</button>
+                </div>
+                <div className="relative">
+                  <div className="rounded-2xl sm:rounded-3xl shadow-2xl p-2 sm:p-4 md:p-6 overflow-hidden bg-cover bg-center"
+                    style={{ backgroundImage: `url(${IMAGES.background})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                    {renderGrid()}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1000 }}>
+                    <div className="text-6xl sm:text-7xl md:text-9xl font-black text-white drop-shadow-2xl animate-pulse" 
+                      style={{ textShadow: '0 0 40px rgba(255,255,255,0.8), 0 0 80px rgba(255,255,255,0.4)' }}>
+                      {countdown > 0 ? countdown : t.start}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (screen === 'game') {
+        return (
+          <div className="min-h-screen">
+            <Header />
+            <div className="p-2 sm:p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex items-end justify-between mb-2 gap-4">
+                  <div className="flex-1"></div>
+                  <DirectionIndicator />
+                  <div className="flex-1 flex justify-end">
+                    <button onClick={exitGame} className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-gradient-to-br from-amber-50 to-orange-100 rounded-full text-orange-600 font-semibold shadow-lg hover:shadow-xl border-2 border-orange-300 transition-all">{t.exit}</button>
+                  </div>
+                </div>
+                <div className="rounded-2xl sm:rounded-3xl shadow-2xl p-2 sm:p-4 md:p-6 relative overflow-hidden bg-cover bg-center"
+                  style={{ backgroundImage: `url(${IMAGES.background})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                  {renderGrid()}
+                </div>
+                <div className="mt-2 sm:mt-4 text-center text-white text-sm sm:text-base md:text-lg">
+                  {cometGuessMode ? (
+                    <p>{t.whereCometWas}</p>
+                  ) : currentStep < route.length ? (
+                    <p>{t.listening} ({currentStep}/{route.length})</p>
+                  ) : (
+                    <p>{t.clickWhere}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (screen === 'results') {
+        return (
+          <div className="min-h-screen">
+            <Header />
+            <div className="p-2 sm:p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex justify-end mb-2">
+                  <button onClick={exitGame} className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-gradient-to-br from-amber-50 to-orange-100 rounded-full text-orange-600 font-semibold shadow-lg hover:shadow-xl border-2 border-orange-300 transition-all">{t.exit}</button>
+                </div>
+                <div className="text-center mb-4 sm:mb-6">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg mb-3 sm:mb-4">{t.wellDone}</h2>
+                  <div className="flex justify-center gap-2 sm:gap-4 flex-wrap px-2">
+                    <button onClick={repeatRound} className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-br from-yellow-100 to-yellow-300 rounded-full text-orange-900 font-semibold shadow-lg hover:shadow-xl border-2 border-yellow-400 transition-all">{t.repeatRound}</button>
+                    <button onClick={nextRound} className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-br from-green-400 to-green-500 rounded-full text-white font-semibold shadow-lg hover:shadow-xl border-2 border-green-600 transition-all">{t.nextRound}</button>
+                  </div>
+                </div>
+                <div className="rounded-2xl sm:rounded-3xl shadow-2xl p-2 sm:p-4 md:p-6 overflow-hidden bg-cover bg-center"
+                  style={{ backgroundImage: `url(${IMAGES.background})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                  {renderGrid()}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return null;
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<LeoSpaceNavigator />);
+  </script>
+</body>
+</html>
